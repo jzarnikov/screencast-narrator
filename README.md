@@ -28,6 +28,12 @@ brew install ffmpeg zbar
 
 # Ubuntu/Debian
 apt-get install ffmpeg libzbar0
+
+# Windows
+winget install GyanDev.FFmpeg
+# The pyzbar Python package ships its own libzbar DLL but needs the Visual C++ 2013 runtime:
+winget install Microsoft.VCRedist.2013.x64
+# Or download manually from https://aka.ms/highdpimfc2013x64enu
 ```
 
 ## Quick Start

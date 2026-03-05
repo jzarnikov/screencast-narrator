@@ -334,7 +334,9 @@ def _build_extended_video_direct(
             segment_files.append(seg_file)
 
         freeze_img = temp_dir / f"sync_freeze_{i:03d}.png"
-        exec_ffmpeg("-y", "-i", str(video_file), "-ss", secs(cut_s), "-vframes", "1", str(freeze_img))
+        # Clamp to last frame if cut point is at or past video end
+        extract_s = min(cut_s, max(video_duration_s - 0.04, 0.0))
+        exec_ffmpeg("-y", "-i", str(video_file), "-ss", secs(extract_s), "-vframes", "1", str(freeze_img))
 
         freeze_seg = temp_dir / f"sync_freeze_seg_{i:03d}.mp4"
         exec_ffmpeg("-y", "-r", "25", "-f", "image2", "-i", str(freeze_img),

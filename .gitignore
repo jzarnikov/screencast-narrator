@@ -12,3 +12,6 @@ build/
 venv/
 *.so
 .DS_Store
+.idea/
+.claude/settings.local.json
+tmp_e2e/

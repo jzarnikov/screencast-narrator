@@ -339,7 +339,7 @@ def generate_original_html(target_dir: Path) -> Path:
     lines.append('</div></body></html>')
 
     output_file = target_dir / "timeline-original.html"
-    output_file.write_text("\n".join(lines))
+    output_file.write_text("\n".join(lines), encoding="utf-8")
     return output_file
 
 
@@ -458,7 +458,7 @@ def generate_adjusted_html(target_dir: Path) -> Path:
     lines.append('</div></body></html>')
 
     output_file = target_dir / "timeline-adjusted.html"
-    output_file.write_text("\n".join(lines))
+    output_file.write_text("\n".join(lines), encoding="utf-8")
     return output_file
 
 
@@ -605,7 +605,7 @@ def generate_combined_html(target_dir: Path) -> Path:
     lines.append('</div></body></html>')
 
     output_file = target_dir / "timeline-combined.html"
-    output_file.write_text("\n".join(lines))
+    output_file.write_text("\n".join(lines), encoding="utf-8")
     return output_file
 
 

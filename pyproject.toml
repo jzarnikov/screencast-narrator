@@ -36,6 +36,10 @@ tts = [
 dev = [
     "pytest>=7.0",
 ]
+e2e = [
+    "playwright>=1.40",
+    "screencast-narrator[tts]",
+]
 
 [project.scripts]
 screencast-narrator = "screencast_narrator.merge:main"
