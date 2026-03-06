@@ -80,14 +80,10 @@ def detect_sync_frames(video_path: Path, temp_dir: Path) -> SyncDetectionResult:
         decoded = decode_qr(img, i)
 
         if not decoded.startswith("SYNC|"):
-            raise RuntimeError(
-                f"Green frame {i} ({i * 0.04:.3f}s) has unexpected QR content: {decoded}"
-            )
+            raise RuntimeError(f"Green frame {i} ({i * 0.04:.3f}s) has unexpected QR content: {decoded}")
         parts = decoded.split("|")
         if len(parts) != 3:
-            raise RuntimeError(
-                f"Green frame {i} ({i * 0.04:.3f}s) has malformed SYNC marker: {decoded}"
-            )
+            raise RuntimeError(f"Green frame {i} ({i * 0.04:.3f}s) has malformed SYNC marker: {decoded}")
         narration_id = int(parts[1])
         marker_type = parts[2]
         markers.append(SyncMarker(narration_id, marker_type, i))
@@ -107,11 +103,7 @@ def group_into_spans(markers: list[SyncMarker]) -> list[SyncFrameSpan]:
     span_marker = first.marker
 
     for m in markers[1:]:
-        if (
-            m.narration_id == span_narration_id
-            and m.marker == span_marker
-            and m.frame_index <= span_last + 2
-        ):
+        if m.narration_id == span_narration_id and m.marker == span_marker and m.frame_index <= span_last + 2:
             span_last = m.frame_index
         else:
             spans.append(SyncFrameSpan(span_narration_id, span_marker, span_first, span_last))
@@ -131,16 +123,44 @@ def strip_sync_frames(video_path: Path, green_frame_indices: set[int], temp_dir:
         return video_path
 
     cfr_video = temp_dir / "cfr_video.mp4"
-    exec_ffmpeg("-y", "-i", str(video_path), "-r", "25",
-                "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-an", str(cfr_video))
+    exec_ffmpeg(
+        "-y",
+        "-i",
+        str(video_path),
+        "-r",
+        "25",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "18",
+        "-an",
+        str(cfr_video),
+    )
 
     ranges = group_consecutive_into_ranges(green_frame_indices)
     between_clauses = "+".join(f"between(n\\,{r[0]}\\,{r[1]})" for r in ranges)
     select_filter = f"select='not({between_clauses})',setpts=N/25/TB"
 
     stripped_video = temp_dir / "stripped.mp4"
-    exec_ffmpeg("-y", "-i", str(cfr_video), "-vf", select_filter, "-r", "25",
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", str(stripped_video))
+    exec_ffmpeg(
+        "-y",
+        "-i",
+        str(cfr_video),
+        "-vf",
+        select_filter,
+        "-r",
+        "25",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-an",
+        str(stripped_video),
+    )
 
     return stripped_video
 
@@ -164,9 +184,7 @@ def group_consecutive_into_ranges(indices: set[int]) -> list[tuple[int, int]]:
     return ranges
 
 
-def build_sync_position_map(
-    spans: list[SyncFrameSpan], green_frame_indices: set[int]
-) -> dict[str, float]:
+def build_sync_position_map(spans: list[SyncFrameSpan], green_frame_indices: set[int]) -> dict[str, float]:
     sorted_spans = sorted(spans, key=lambda s: s.first_frame)
     sorted_green = sorted(green_frame_indices)
 

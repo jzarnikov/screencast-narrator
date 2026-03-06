@@ -2,41 +2,46 @@
 
 import json
 
+from screencast_narrator.freeze_frames import HighlightEntry
 from screencast_narrator.merge import (
     NarrationText,
+    _compute_video_time_scale,
     _extract_highlights,
     _extract_narrations,
     _get_events,
-    _compute_video_time_scale,
-    _video_recording_offset,
     _segment_name,
+    _video_recording_offset,
 )
-from screencast_narrator.freeze_frames import HighlightEntry
 
 
-def _make_timeline(narrations, highlights=None, actions=None,
-                   video_start=None, video_end=None):
+def _make_timeline(narrations, highlights=None, actions=None, video_start=None, video_end=None):
     events = []
     for n in narrations:
-        events.append({
-            "type": "narration",
-            "timestampMs": n[0],
-            "endTimestampMs": n[1],
-            "text": n[2],
-            "narrationId": n[3] if len(n) > 3 else 0,
-        })
-    for h in (highlights or []):
-        events.append({
-            "type": "highlight",
-            "timestampMs": h[0],
-            "endTimestampMs": h[1],
-        })
-    for a in (actions or []):
-        events.append({
-            "type": "action",
-            "timestampMs": a[0],
-            "description": a[1],
-        })
+        events.append(
+            {
+                "type": "narration",
+                "timestampMs": n[0],
+                "endTimestampMs": n[1],
+                "text": n[2],
+                "narrationId": n[3] if len(n) > 3 else 0,
+            }
+        )
+    for h in highlights or []:
+        events.append(
+            {
+                "type": "highlight",
+                "timestampMs": h[0],
+                "endTimestampMs": h[1],
+            }
+        )
+    for a in actions or []:
+        events.append(
+            {
+                "type": "action",
+                "timestampMs": a[0],
+                "description": a[1],
+            }
+        )
     root = {"events": events}
     if video_start is not None:
         root["videoRecordingStartedAtMs"] = video_start
@@ -46,10 +51,12 @@ def _make_timeline(narrations, highlights=None, actions=None,
 
 
 def test_extract_narrations_from_timeline():
-    root = _make_timeline([
-        (1000, 3000, "first narration"),
-        (5000, 5000, "instant narration"),
-    ])
+    root = _make_timeline(
+        [
+            (1000, 3000, "first narration"),
+            (5000, 5000, "instant narration"),
+        ]
+    )
     result = _extract_narrations(root)
     assert len(result) == 2
     assert result[0] == NarrationText(1000, 3000, "first narration")
@@ -107,9 +114,9 @@ def test_round_trip_timeline_json(tmp_path):
         video_end=8000,
     )
     timeline_file = tmp_path / "timeline.json"
-    timeline_file.write_text(json.dumps(root))
+    timeline_file.write_text(json.dumps(root), encoding="utf-8")
 
-    loaded = json.loads(timeline_file.read_text())
+    loaded = json.loads(timeline_file.read_text(encoding="utf-8"))
     narrations = _extract_narrations(loaded)
     highlights = _extract_highlights(loaded)
 

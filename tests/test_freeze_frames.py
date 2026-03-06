@@ -3,13 +3,11 @@
 import pytest
 
 from screencast_narrator.freeze_frames import (
-    FreezeFrame,
     FreezeFrameCalculator,
     GapCut,
     HighlightEntry,
     NarrationSegment,
     adjust_for_cuts,
-    adjust_timestamp,
     detect_dead_air_gaps,
     subtract_occupied,
     validate_freeze_positions,
@@ -30,18 +28,14 @@ def assert_no_audio_overlap(result, narrations):
 
 
 def test_freeze_frame_times_should_be_in_original_video_coordinates():
-    result = FreezeFrameCalculator(
-        [seg(0, 5000, 7000), seg(5000, 8000, 4000), seg(8000, 8000, 0)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(0, 5000, 7000), seg(5000, 8000, 4000), seg(8000, 8000, 0)], []).calculate()
     assert len(result.freeze_frames) == 2
     assert result.freeze_frames[0].time_ms == 5000
     assert result.freeze_frames[1].time_ms == 8000
 
 
 def test_adjusted_timestamps_should_match_visual_position_in_extended_video():
-    result = FreezeFrameCalculator(
-        [seg(0, 5000, 7000), seg(5000, 8000, 4000), seg(8000, 8000, 0)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(0, 5000, 7000), seg(5000, 8000, 4000), seg(8000, 8000, 0)], []).calculate()
     assert len(result.freeze_frames) == 2
     assert result.adjusted_timestamps[0] == 0
     assert result.adjusted_timestamps[1] == 7000
@@ -49,9 +43,7 @@ def test_adjusted_timestamps_should_match_visual_position_in_extended_video():
 
 
 def test_adjusted_timestamps_should_not_over_shift_when_freeze_is_after_narration():
-    result = FreezeFrameCalculator(
-        [seg(0, 2000, 1500), seg(2000, 3000, 500), seg(3000, 3000, 8000)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(0, 2000, 1500), seg(2000, 3000, 500), seg(3000, 3000, 8000)], []).calculate()
     assert result.adjusted_timestamps[0] == 0
     assert result.adjusted_timestamps[1] == 2000
     assert result.adjusted_timestamps[2] == 3000
@@ -86,9 +78,7 @@ def test_freeze_at_exact_highlight_start_should_be_fine():
 
 
 def test_no_freeze_needed_when_audio_fits_in_action_duration():
-    result = FreezeFrameCalculator(
-        [seg(0, 5000, 3000), seg(5000, 5000, 0)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(0, 5000, 3000), seg(5000, 5000, 0)], []).calculate()
     assert len(result.freeze_frames) == 0
 
 
@@ -144,38 +134,84 @@ def test_freeze_should_move_after_highlight_when_cannot_go_backward():
 
 def test_real_timeline_data_should_produce_no_overlaps():
     narrations = [
-        seg(248, 248, 4500), seg(23343, 23343, 3500), seg(25575, 25575, 5000), seg(30591, 30591, 4500),
-        seg(57108, 57108, 2000), seg(57521, 57521, 4500), seg(61088, 61088, 3500), seg(63215, 63215, 5000),
-        seg(68775, 68775, 4500), seg(92244, 92244, 2000), seg(96063, 96063, 3500), seg(104658, 104658, 2500),
-        seg(106575, 106575, 3000), seg(108308, 108308, 3500), seg(108309, 108309, 4000), seg(115373, 115373, 4500),
-        seg(118605, 118605, 2000), seg(119050, 119050, 3000), seg(122598, 122598, 3000), seg(139088, 139088, 4500),
-        seg(164587, 164587, 2000), seg(166710, 166710, 3500), seg(168457, 168457, 3000), seg(173685, 173685, 3500),
-        seg(176332, 176332, 2500), seg(176333, 176333, 3000), seg(203655, 203655, 2500), seg(207212, 207212, 3000),
-        seg(223053, 223053, 4500), seg(250651, 250651, 2000), seg(251112, 251112, 2500), seg(252868, 252868, 2500),
-        seg(256411, 256411, 3000), seg(256420, 256420, 2000),
+        seg(248, 248, 4500),
+        seg(23343, 23343, 3500),
+        seg(25575, 25575, 5000),
+        seg(30591, 30591, 4500),
+        seg(57108, 57108, 2000),
+        seg(57521, 57521, 4500),
+        seg(61088, 61088, 3500),
+        seg(63215, 63215, 5000),
+        seg(68775, 68775, 4500),
+        seg(92244, 92244, 2000),
+        seg(96063, 96063, 3500),
+        seg(104658, 104658, 2500),
+        seg(106575, 106575, 3000),
+        seg(108308, 108308, 3500),
+        seg(108309, 108309, 4000),
+        seg(115373, 115373, 4500),
+        seg(118605, 118605, 2000),
+        seg(119050, 119050, 3000),
+        seg(122598, 122598, 3000),
+        seg(139088, 139088, 4500),
+        seg(164587, 164587, 2000),
+        seg(166710, 166710, 3500),
+        seg(168457, 168457, 3000),
+        seg(173685, 173685, 3500),
+        seg(176332, 176332, 2500),
+        seg(176333, 176333, 3000),
+        seg(203655, 203655, 2500),
+        seg(207212, 207212, 3000),
+        seg(223053, 223053, 4500),
+        seg(250651, 250651, 2000),
+        seg(251112, 251112, 2500),
+        seg(252868, 252868, 2500),
+        seg(256411, 256411, 3000),
+        seg(256420, 256420, 2000),
     ]
     highlights = [
-        HighlightEntry(5126, 1400), HighlightEntry(6824, 1400),
-        HighlightEntry(14765, 1400), HighlightEntry(16502, 1400),
-        HighlightEntry(19448, 1400), HighlightEntry(21375, 1400),
-        HighlightEntry(23266, 1400), HighlightEntry(25460, 1400),
-        HighlightEntry(27276, 1400), HighlightEntry(28942, 1400),
-        HighlightEntry(30590, 1400), HighlightEntry(55458, 1400),
-        HighlightEntry(57107, 1400), HighlightEntry(59057, 1400),
-        HighlightEntry(60743, 1400), HighlightEntry(63092, 1400),
-        HighlightEntry(65456, 1400), HighlightEntry(67123, 1400),
-        HighlightEntry(68774, 1400), HighlightEntry(90590, 1400),
-        HighlightEntry(92242, 1400), HighlightEntry(94039, 1400),
-        HighlightEntry(95724, 1400), HighlightEntry(97591, 1400),
-        HighlightEntry(99556, 1400), HighlightEntry(102173, 1400),
-        HighlightEntry(104173, 1400), HighlightEntry(106357, 1400),
-        HighlightEntry(108089, 1400), HighlightEntry(112056, 1400),
-        HighlightEntry(113721, 1400), HighlightEntry(115372, 1400),
-        HighlightEntry(116958, 1400), HighlightEntry(118604, 1400),
-        HighlightEntry(120576, 1400), HighlightEntry(122274, 1400),
-        HighlightEntry(124140, 1400), HighlightEntry(128140, 1400),
-        HighlightEntry(129806, 1400), HighlightEntry(133344, 1400),
-        HighlightEntry(135773, 1400), HighlightEntry(137437, 1400),
+        HighlightEntry(5126, 1400),
+        HighlightEntry(6824, 1400),
+        HighlightEntry(14765, 1400),
+        HighlightEntry(16502, 1400),
+        HighlightEntry(19448, 1400),
+        HighlightEntry(21375, 1400),
+        HighlightEntry(23266, 1400),
+        HighlightEntry(25460, 1400),
+        HighlightEntry(27276, 1400),
+        HighlightEntry(28942, 1400),
+        HighlightEntry(30590, 1400),
+        HighlightEntry(55458, 1400),
+        HighlightEntry(57107, 1400),
+        HighlightEntry(59057, 1400),
+        HighlightEntry(60743, 1400),
+        HighlightEntry(63092, 1400),
+        HighlightEntry(65456, 1400),
+        HighlightEntry(67123, 1400),
+        HighlightEntry(68774, 1400),
+        HighlightEntry(90590, 1400),
+        HighlightEntry(92242, 1400),
+        HighlightEntry(94039, 1400),
+        HighlightEntry(95724, 1400),
+        HighlightEntry(97591, 1400),
+        HighlightEntry(99556, 1400),
+        HighlightEntry(102173, 1400),
+        HighlightEntry(104173, 1400),
+        HighlightEntry(106357, 1400),
+        HighlightEntry(108089, 1400),
+        HighlightEntry(112056, 1400),
+        HighlightEntry(113721, 1400),
+        HighlightEntry(115372, 1400),
+        HighlightEntry(116958, 1400),
+        HighlightEntry(118604, 1400),
+        HighlightEntry(120576, 1400),
+        HighlightEntry(122274, 1400),
+        HighlightEntry(124140, 1400),
+        HighlightEntry(128140, 1400),
+        HighlightEntry(129806, 1400),
+        HighlightEntry(133344, 1400),
+        HighlightEntry(135773, 1400),
+        HighlightEntry(137437, 1400),
         HighlightEntry(139087, 1400),
     ]
     result = FreezeFrameCalculator(narrations, highlights).calculate()
@@ -203,9 +239,7 @@ def test_nearly_simultaneous_narrations_should_each_get_own_freeze_frame():
 
 
 def test_bracketed_narration_where_action_is_shorter_than_audio_should_freeze():
-    result = FreezeFrameCalculator(
-        [seg(1000, 3000, 5000), seg(3000, 3000, 0)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(1000, 3000, 5000), seg(3000, 3000, 0)], []).calculate()
     assert len(result.freeze_frames) == 1
     assert result.freeze_frames[0].time_ms == 3000
     assert result.freeze_frames[0].duration_ms == 3000
@@ -217,9 +251,7 @@ def test_bracketed_narration_where_action_is_longer_than_audio_should_not_freeze
 
 
 def test_freeze_should_be_placed_at_end_ms_even_if_gap_to_next_narration():
-    result = FreezeFrameCalculator(
-        [seg(0, 2000, 5000), seg(10000, 10000, 0)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(0, 2000, 5000), seg(10000, 10000, 0)], []).calculate()
     assert len(result.freeze_frames) == 1
     assert result.freeze_frames[0].time_ms == 2000
     assert result.freeze_frames[0].duration_ms == 3000
@@ -234,9 +266,7 @@ def test_audio_should_play_during_its_own_freeze_not_after_it():
 
 
 def test_preceding_freezes_should_shift_but_own_freeze_should_not():
-    result = FreezeFrameCalculator(
-        [seg(0, 2000, 4000), seg(2000, 2000, 0), seg(5000, 5000, 3000)], []
-    ).calculate()
+    result = FreezeFrameCalculator([seg(0, 2000, 4000), seg(2000, 2000, 0), seg(5000, 5000, 3000)], []).calculate()
     assert result.adjusted_timestamps[0] == 0
     assert result.adjusted_timestamps[2] == 7000
 
@@ -255,9 +285,7 @@ def test_each_narration_gets_its_own_freeze_when_audio_overflows():
 
 def test_freeze_pushed_past_next_narration_by_highlight_uses_audio_safety_net():
     narrations = [seg(0, 5000, 8000), seg(5000, 7000, 2000)]
-    result = FreezeFrameCalculator(
-        narrations, [HighlightEntry(4900, 1400)]
-    ).calculate()
+    result = FreezeFrameCalculator(narrations, [HighlightEntry(4900, 1400)]).calculate()
     assert len(result.freeze_frames) == 1
     assert result.freeze_frames[0].time_ms == 6300
     n1_adj = result.adjusted_timestamps[1]

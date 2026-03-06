@@ -37,9 +37,9 @@ def to_stripped_video_narrations(
             wall_clock_bracket = n.end_ms - n.start_ms
             sync_time_ms = sync_frame_time_in_bracket_ms(sync_frame_spans, i)
             stripped_bracket = max(0, wall_clock_bracket - sync_time_ms)
-            adjusted.append(NarrationSegment(
-                sync_start_ms, sync_start_ms + stripped_bracket, n.text, n.audio_duration_ms
-            ))
+            adjusted.append(
+                NarrationSegment(sync_start_ms, sync_start_ms + stripped_bracket, n.text, n.audio_duration_ms)
+            )
         else:
             adjusted.append(n)
     return adjusted

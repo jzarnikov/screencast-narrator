@@ -137,9 +137,7 @@ def detect_dead_air_gaps(
     return gaps
 
 
-def subtract_occupied(
-    start: int, end: int, occupied: list[tuple[int, int]]
-) -> list[tuple[int, int]]:
+def subtract_occupied(start: int, end: int, occupied: list[tuple[int, int]]) -> list[tuple[int, int]]:
     result: list[tuple[int, int]] = [(start, end)]
     for occ in occupied:
         new_result: list[tuple[int, int]] = []

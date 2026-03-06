@@ -31,19 +31,20 @@ def probe_duration_ms(media_path: Path) -> int:
 
     output = _run_ffprobe(media_path)
     if output == "N/A":
-        raise RuntimeError(
-            f"ffprobe returned 'N/A' for duration of {media_path}. "
-            f"The file may not be fully finalized."
-        )
+        raise RuntimeError(f"ffprobe returned 'N/A' for duration of {media_path}. The file may not be fully finalized.")
     return int(float(output) * 1000)
 
 
 def _run_ffprobe(media_path: Path) -> str:
     result = subprocess.run(
         [
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             str(media_path),
         ],
         capture_output=True,

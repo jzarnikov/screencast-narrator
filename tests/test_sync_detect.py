@@ -3,10 +3,10 @@
 from PIL import Image
 
 from screencast_narrator.sync_detect import (
+    SyncMarker,
     group_consecutive_into_ranges,
     group_into_spans,
     is_green_frame,
-    SyncMarker,
 )
 
 

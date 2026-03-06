@@ -16,7 +16,7 @@ def test_qr_code_roundtrip():
     data_url = generate_qr_data_url(data)
     assert data_url.startswith("data:image/png;base64,")
 
-    b64 = data_url[len("data:image/png;base64,"):]
+    b64 = data_url[len("data:image/png;base64,") :]
     image_bytes = base64.b64decode(b64)
     img = Image.open(io.BytesIO(image_bytes))
     assert img is not None

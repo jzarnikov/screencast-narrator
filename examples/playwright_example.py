@@ -13,11 +13,12 @@ Requirements:
 """
 
 from pathlib import Path
+
 from playwright.sync_api import sync_playwright
 
-from screencast_narrator.timeline import ScreencastTimeline
-from screencast_narrator.sync_frames import inject_sync_frame
 from screencast_narrator.merge import process
+from screencast_narrator.sync_frames import inject_sync_frame
+from screencast_narrator.timeline import ScreencastTimeline
 
 
 def main() -> None:
@@ -42,13 +43,14 @@ def main() -> None:
         timeline.begin_narration_bracket()
         inject_sync_frame(page, timeline.active_narration_id(), "START")
 
-        page.goto("https://example.com")
+        page.goto("https://example.com", wait_until="load")
         timeline.add_action("Navigate to example.com")
-        page.wait_for_timeout(1000)
+        page.wait_for_selector("h1", state="visible")
 
         inject_sync_frame(page, timeline.active_narration_id(), "END")
         start_ms = timeline.start_time
         import time
+
         now = int(time.time() * 1000)
         timeline.add_narration(
             "We navigate to the example website to demonstrate the screencast narrator.",

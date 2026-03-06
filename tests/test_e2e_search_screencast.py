@@ -31,26 +31,19 @@ from screencast_narrator.sync_frames import inject_sync_frame
 from screencast_narrator.timeline import ScreencastTimeline
 
 _HIGHLIGHT_CSS = (
-    "outline: 3px solid red; "
-    "outline-offset: 2px; "
-    "border-radius: 4px; "
-    "box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);"
+    "outline: 3px solid red; outline-offset: 2px; border-radius: 4px; box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);"
 )
 
 
 def _add_highlight(locator) -> None:
     locator.evaluate(
-        "(el, css) => el.setAttribute('style', "
-        "(el.getAttribute('style') || '') + ';' + css)",
+        "(el, css) => el.setAttribute('style', (el.getAttribute('style') || '') + ';' + css)",
         _HIGHLIGHT_CSS,
     )
 
 
 def _remove_highlight(locator) -> None:
-    locator.evaluate(
-        "el => { el.style.outline = ''; el.style.outlineOffset = ''; "
-        "el.style.boxShadow = ''; }"
-    )
+    locator.evaluate("el => { el.style.outline = ''; el.style.outlineOffset = ''; el.style.boxShadow = ''; }")
 
 
 def _now_ms() -> int:
@@ -61,6 +54,8 @@ def _now_ms() -> int:
 def test_search_screencast(tmp_path: Path) -> None:
     """Full pipeline: Playwright recording -> timeline -> TTS -> merge -> MP4."""
     from playwright.sync_api import sync_playwright
+
+    print(f"\nScreencast output directory: {tmp_path}")
 
     output_dir = tmp_path / "search-screencast"
     output_dir.mkdir()
@@ -109,25 +104,23 @@ def test_search_screencast(tmp_path: Path) -> None:
         _remove_highlight(search_box)
         page.wait_for_selector("#firstHeading", state="visible")
         page.wait_for_selector("#mw-content-text h2", state="visible")
-        timeline.add_narration(
-            "We type 'restaurant' into the search box and press Enter "
-            "to navigate to the article."
-        )
+        timeline.add_narration("We type 'restaurant' into the search box and press Enter to navigate to the article.")
         inject_sync_frame(page, narration_id, "END")
         timeline.end_narration_bracket()
 
         # --- Step 3: Read section headings ---
-        heading_elements = page.locator(
-            "#mw-content-text h2 .mw-headline, #mw-content-text h2"
-        ).all()
+        heading_elements = page.locator("#mw-content-text h2 .mw-headline, #mw-content-text h2").all()
         headings = []
         for el in heading_elements[:8]:
             try:
                 text = el.inner_text(timeout=2000)
                 text = text.replace("[edit]", "").strip()
                 if text and text not in (
-                    "See also", "References", "External links",
-                    "Notes", "Further reading",
+                    "See also",
+                    "References",
+                    "External links",
+                    "Notes",
+                    "Further reading",
                 ):
                     headings.append((text, el))
             except Exception:
@@ -150,9 +143,7 @@ def test_search_screencast(tmp_path: Path) -> None:
                 timeline.add_highlight(hl_start)
 
             timeline.add_action(f"Read section heading: {heading_text}")
-            timeline.add_narration(
-                f"Section {i + 1} of the article is titled: {heading_text}."
-            )
+            timeline.add_narration(f"Section {i + 1} of the article is titled: {heading_text}.")
             inject_sync_frame(page, narration_id, "END")
             timeline.end_narration_bracket()
 

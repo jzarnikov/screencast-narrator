@@ -55,13 +55,12 @@ def process(target_dir: Path, tts_backend: TTSBackend | None = None) -> None:
     audio_dir.mkdir(parents=True, exist_ok=True)
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    timeline_root = json.loads(timeline_file.read_text())
+    timeline_root = json.loads(timeline_file.read_text(encoding="utf-8"))
     narration_texts = _extract_narrations(timeline_root)
     highlights = _extract_highlights(timeline_root)
 
     if not narration_texts:
-        exec_ffmpeg("-y", "-i", str(video_file),
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23", str(output_file))
+        exec_ffmpeg("-y", "-i", str(video_file), "-c:v", "libx264", "-preset", "fast", "-crf", "23", str(output_file))
         return
 
     if tts_backend is None:
@@ -76,11 +75,11 @@ def process(target_dir: Path, tts_backend: TTSBackend | None = None) -> None:
     sync_detection = detect_sync_frames(video_file, temp_dir)
 
     if sync_detection.green_frame_indices:
-        _run_sync_frame_pipeline(video_file, sync_detection, narrations, highlights,
-                                 timeline_root, audio_dir, temp_dir, output_file)
+        _run_sync_frame_pipeline(
+            video_file, sync_detection, narrations, highlights, timeline_root, audio_dir, temp_dir, output_file
+        )
     else:
-        _run_wall_clock_pipeline(video_file, narrations, highlights,
-                                 timeline_root, audio_dir, temp_dir, output_file)
+        _run_wall_clock_pipeline(video_file, narrations, highlights, timeline_root, audio_dir, temp_dir, output_file)
 
     generate_original_html(target_dir)
     generate_adjusted_html(target_dir)
@@ -145,6 +144,7 @@ def _generate_tts_audio(narrations: list[NarrationText], audio_dir: Path, tts_ba
 
 
 # --- Sync-frame-based pipeline ---
+
 
 def _run_sync_frame_pipeline(
     raw_video_file: Path,
@@ -217,9 +217,9 @@ def _to_stripped_video_narrations(
             wall_clock_bracket = n.end_ms - n.start_ms
             sync_time_ms = _sync_frame_time_in_bracket_ms(qr_spans, green_frame_indices, i)
             stripped_bracket = max(0, wall_clock_bracket - sync_time_ms)
-            adjusted.append(NarrationSegment(
-                sync_start_ms, sync_start_ms + stripped_bracket, n.text, n.audio_duration_ms
-            ))
+            adjusted.append(
+                NarrationSegment(sync_start_ms, sync_start_ms + stripped_bracket, n.text, n.audio_duration_ms)
+            )
         else:
             video_offset = _video_recording_offset(timeline_root)
             adj_start = max(0, n.start_ms - video_offset)
@@ -253,6 +253,7 @@ def _find_green_range_containing(green_frame_indices: set[int], frame_index: int
 
 # --- Wall-clock-based pipeline ---
 
+
 def _run_wall_clock_pipeline(
     video_file: Path,
     narrations: list[NarrationSegment],
@@ -270,15 +271,21 @@ def _run_wall_clock_pipeline(
     result = FreezeFrameCalculator(narrations, highlights, video_recording_end_ms).calculate()
 
     final_video = _build_extended_video(
-        video_file, result.freeze_frames, video_duration_ms / 1000.0,
-        video_time_scale, video_offset, temp_dir,
+        video_file,
+        result.freeze_frames,
+        video_duration_ms / 1000.0,
+        video_time_scale,
+        video_offset,
+        temp_dir,
     )
 
     extended_duration_ms = probe_duration_ms(final_video)
 
     max_audio_end_ms = max(
-        (_audio_delay_ms(result.adjusted_timestamps[i], video_offset) + narrations[i].audio_duration_ms
-         for i in range(len(narrations))),
+        (
+            _audio_delay_ms(result.adjusted_timestamps[i], video_offset) + narrations[i].audio_duration_ms
+            for i in range(len(narrations))
+        ),
         default=0,
     )
     tail_freeze_ms = max_audio_end_ms - extended_duration_ms + 5000
@@ -310,9 +317,12 @@ def _run_wall_clock_pipeline(
 
 # --- Video building ---
 
+
 def _build_extended_video_direct(
-    video_file: Path, freeze_frames: list[FreezeFrame],
-    video_duration_s: float, temp_dir: Path,
+    video_file: Path,
+    freeze_frames: list[FreezeFrame],
+    video_duration_s: float,
+    temp_dir: Path,
 ) -> Path:
     if not freeze_frames:
         return video_file
@@ -327,10 +337,25 @@ def _build_extended_video_direct(
 
         if cut_s > last_cut_s:
             seg_file = temp_dir / f"sync_seg_{i:03d}.mp4"
-            exec_ffmpeg("-y", "-i", str(video_file),
-                        "-ss", secs(last_cut_s), "-to", secs(cut_s), "-r", "25",
-                        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                        "-an", str(seg_file))
+            exec_ffmpeg(
+                "-y",
+                "-i",
+                str(video_file),
+                "-ss",
+                secs(last_cut_s),
+                "-to",
+                secs(cut_s),
+                "-r",
+                "25",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "fast",
+                "-crf",
+                "23",
+                "-an",
+                str(seg_file),
+            )
             segment_files.append(seg_file)
 
         freeze_img = temp_dir / f"sync_freeze_{i:03d}.png"
@@ -339,27 +364,63 @@ def _build_extended_video_direct(
         exec_ffmpeg("-y", "-i", str(video_file), "-ss", secs(extract_s), "-vframes", "1", str(freeze_img))
 
         freeze_seg = temp_dir / f"sync_freeze_seg_{i:03d}.mp4"
-        exec_ffmpeg("-y", "-r", "25", "-f", "image2", "-i", str(freeze_img),
-                    "-vf", "loop=-1:1:0", "-t", secs(ff_duration_s),
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-pix_fmt", "yuv420p", "-an", str(freeze_seg))
+        exec_ffmpeg(
+            "-y",
+            "-r",
+            "25",
+            "-f",
+            "image2",
+            "-i",
+            str(freeze_img),
+            "-vf",
+            "loop=-1:1:0",
+            "-t",
+            secs(ff_duration_s),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(freeze_seg),
+        )
         segment_files.append(freeze_seg)
         last_cut_s = cut_s
 
     if last_cut_s < video_duration_s - 0.1:
         final_seg = temp_dir / "sync_seg_final.mp4"
-        exec_ffmpeg("-y", "-i", str(video_file), "-ss", secs(last_cut_s), "-r", "25",
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-an", str(final_seg))
+        exec_ffmpeg(
+            "-y",
+            "-i",
+            str(video_file),
+            "-ss",
+            secs(last_cut_s),
+            "-r",
+            "25",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "23",
+            "-an",
+            str(final_seg),
+        )
         segment_files.append(final_seg)
 
     return _concat_segments(segment_files, temp_dir / "sync_concat.txt", temp_dir / "sync_extended.mp4")
 
 
 def _build_extended_video(
-    video_file: Path, freeze_frames: list[FreezeFrame],
-    video_duration_s: float, video_time_scale: float,
-    video_offset_ms: int, temp_dir: Path,
+    video_file: Path,
+    freeze_frames: list[FreezeFrame],
+    video_duration_s: float,
+    video_time_scale: float,
+    video_offset_ms: int,
+    temp_dir: Path,
 ) -> Path:
     sorted_ff = sorted(freeze_frames, key=lambda f: f.time_ms)
     needs_correction = abs(video_time_scale - 1.0) > 0.02
@@ -371,8 +432,23 @@ def _build_extended_video(
         if not needs_correction:
             return video_file
         corrected = temp_dir / "corrected.mp4"
-        exec_ffmpeg("-y", "-itsscale", itsscale, "-i", str(video_file), "-r", "25",
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", str(corrected))
+        exec_ffmpeg(
+            "-y",
+            "-itsscale",
+            itsscale,
+            "-i",
+            str(video_file),
+            "-r",
+            "25",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "23",
+            "-an",
+            str(corrected),
+        )
         return corrected
 
     segment_files: list[Path] = []
@@ -387,9 +463,26 @@ def _build_extended_video(
             cmd = ["-y"]
             if needs_correction:
                 cmd.extend(["-itsscale", itsscale])
-            cmd.extend(["-i", str(video_file), "-ss", secs(last_cut_video), "-to", secs(cut_video_s),
-                        "-r", "25", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                        "-an", str(seg_file)])
+            cmd.extend(
+                [
+                    "-i",
+                    str(video_file),
+                    "-ss",
+                    secs(last_cut_video),
+                    "-to",
+                    secs(cut_video_s),
+                    "-r",
+                    "25",
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "fast",
+                    "-crf",
+                    "23",
+                    "-an",
+                    str(seg_file),
+                ]
+            )
             exec_ffmpeg(*cmd)
             segment_files.append(seg_file)
 
@@ -409,10 +502,29 @@ def _build_extended_video(
             )
 
         freeze_seg = temp_dir / f"freeze_seg_{i:03d}.mp4"
-        exec_ffmpeg("-y", "-r", "25", "-f", "image2", "-i", str(freeze_img),
-                    "-vf", "loop=-1:1:0", "-t", secs(ff_duration_s),
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-pix_fmt", "yuv420p", "-an", str(freeze_seg))
+        exec_ffmpeg(
+            "-y",
+            "-r",
+            "25",
+            "-f",
+            "image2",
+            "-i",
+            str(freeze_img),
+            "-vf",
+            "loop=-1:1:0",
+            "-t",
+            secs(ff_duration_s),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(freeze_seg),
+        )
         segment_files.append(freeze_seg)
         last_cut_video = cut_video_s
 
@@ -421,9 +533,24 @@ def _build_extended_video(
         cmd = ["-y"]
         if needs_correction:
             cmd.extend(["-itsscale", itsscale])
-        cmd.extend(["-i", str(video_file), "-ss", secs(last_cut_video), "-r", "25",
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-an", str(final_seg)])
+        cmd.extend(
+            [
+                "-i",
+                str(video_file),
+                "-ss",
+                secs(last_cut_video),
+                "-r",
+                "25",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "fast",
+                "-crf",
+                "23",
+                "-an",
+                str(final_seg),
+            ]
+        )
         exec_ffmpeg(*cmd)
         segment_files.append(final_seg)
 
@@ -432,9 +559,24 @@ def _build_extended_video(
 
 def _concat_segments(segment_files: list[Path], concat_list: Path, output: Path) -> Path:
     content = "\n".join(f"file '{seg.resolve()}'" for seg in segment_files) + "\n"
-    concat_list.write_text(content)
-    exec_ffmpeg("-y", "-f", "concat", "-safe", "0", "-i", str(concat_list),
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", str(output))
+    concat_list.write_text(content, encoding="utf-8")
+    exec_ffmpeg(
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat_list),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-an",
+        str(output),
+    )
     return output
 
 
@@ -443,19 +585,51 @@ def _append_tail_freeze(video_file: Path, duration_ms: int, temp_dir: Path) -> P
     exec_ffmpeg("-y", "-sseof", "-0.1", "-i", str(video_file), "-vframes", "1", str(last_frame))
 
     freeze_seg = temp_dir / "tail_freeze_seg.mp4"
-    exec_ffmpeg("-y", "-r", "25", "-f", "image2", "-i", str(last_frame),
-                "-vf", "loop=-1:1:0", "-t", secs(duration_ms / 1000.0),
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-pix_fmt", "yuv420p", "-an", str(freeze_seg))
-
-    concat_list = temp_dir / "tail_concat.txt"
-    concat_list.write_text(
-        f"file '{video_file.resolve()}'\nfile '{freeze_seg.resolve()}'\n"
+    exec_ffmpeg(
+        "-y",
+        "-r",
+        "25",
+        "-f",
+        "image2",
+        "-i",
+        str(last_frame),
+        "-vf",
+        "loop=-1:1:0",
+        "-t",
+        secs(duration_ms / 1000.0),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        str(freeze_seg),
     )
 
+    concat_list = temp_dir / "tail_concat.txt"
+    concat_list.write_text(f"file '{video_file.resolve()}'\nfile '{freeze_seg.resolve()}'\n", encoding="utf-8")
+
     extended = temp_dir / "extended_with_tail.mp4"
-    exec_ffmpeg("-y", "-f", "concat", "-safe", "0", "-i", str(concat_list),
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", str(extended))
+    exec_ffmpeg(
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat_list),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-an",
+        str(extended),
+    )
     return extended
 
 
@@ -468,28 +642,56 @@ def _cut_gaps(video_file: Path, gap_cuts: list[GapCut], temp_dir: Path) -> Path:
         cut_start_s = gap.start_ms / 1000.0
         if cut_start_s > last_end_s:
             seg_file = temp_dir / f"kept_{i:03d}.mp4"
-            exec_ffmpeg("-y", "-i", str(video_file),
-                        "-ss", secs(last_end_s), "-to", secs(cut_start_s),
-                        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                        "-an", str(seg_file))
+            exec_ffmpeg(
+                "-y",
+                "-i",
+                str(video_file),
+                "-ss",
+                secs(last_end_s),
+                "-to",
+                secs(cut_start_s),
+                "-c:v",
+                "libx264",
+                "-preset",
+                "fast",
+                "-crf",
+                "23",
+                "-an",
+                str(seg_file),
+            )
             segment_files.append(seg_file)
         last_end_s = gap.end_ms / 1000.0
 
     video_duration_s = probe_duration_ms(video_file) / 1000.0
     if last_end_s < video_duration_s - 0.05:
         final_seg = temp_dir / "kept_final.mp4"
-        exec_ffmpeg("-y", "-i", str(video_file), "-ss", secs(last_end_s),
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-an", str(final_seg))
+        exec_ffmpeg(
+            "-y",
+            "-i",
+            str(video_file),
+            "-ss",
+            secs(last_end_s),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "23",
+            "-an",
+            str(final_seg),
+        )
         segment_files.append(final_seg)
 
     return _concat_segments(segment_files, temp_dir / "concat_cuts.txt", temp_dir / "cut.mp4")
 
 
 def _overlay_audio(
-    video_file: Path, narrations: list[NarrationSegment],
-    adjusted_timestamps: list[int], video_offset_ms: int,
-    audio_dir: Path, output_file: Path,
+    video_file: Path,
+    narrations: list[NarrationSegment],
+    adjusted_timestamps: list[int],
+    video_offset_ms: int,
+    audio_dir: Path,
+    output_file: Path,
 ) -> None:
     inputs = ["-i", str(video_file)]
     filter_parts: list[str] = []
@@ -497,8 +699,10 @@ def _overlay_audio(
     audio_count = 0
 
     max_audio_end_ms = max(
-        (_audio_delay_ms(adjusted_timestamps[i], video_offset_ms) + narrations[i].audio_duration_ms
-         for i in range(len(narrations))),
+        (
+            _audio_delay_ms(adjusted_timestamps[i], video_offset_ms) + narrations[i].audio_duration_ms
+            for i in range(len(narrations))
+        ),
         default=0,
     )
     pad_dur = secs(max_audio_end_ms / 1000.0)
@@ -520,10 +724,28 @@ def _overlay_audio(
     mix_filter = "".join(amix_inputs) + f"amix=inputs={n}:duration=longest[amixed];[amixed]volume={n}.0[aout]"
     full_filter = ";".join(filter_parts) + ";" + mix_filter
 
-    cmd = ["-y", *inputs, "-filter_complex", full_filter,
-           "-map", "0:v", "-map", "[aout]",
-           "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-           "-c:a", "aac", "-b:a", "192k", "-shortest", str(output_file)]
+    cmd = [
+        "-y",
+        *inputs,
+        "-filter_complex",
+        full_filter,
+        "-map",
+        "0:v",
+        "-map",
+        "[aout]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-shortest",
+        str(output_file),
+    ]
     exec_ffmpeg(*cmd)
 
 
@@ -533,7 +755,7 @@ def _audio_delay_ms(adjusted_timestamp_ms: int, video_offset_ms: int) -> int:
 
 def _write_gap_cuts_json(gap_cuts: list[GapCut], target_dir: Path) -> None:
     data = [{"startMs": g.start_ms, "endMs": g.end_ms} for g in gap_cuts]
-    (target_dir / "gap-cuts.json").write_text(json.dumps(data))
+    (target_dir / "gap-cuts.json").write_text(json.dumps(data), encoding="utf-8")
 
 
 def main() -> None:

@@ -10,8 +10,7 @@ from shutil import copy2
 
 class TTSBackend(ABC):
     @abstractmethod
-    def generate(self, text: str, output_path: Path) -> None:
-        ...
+    def generate(self, text: str, output_path: Path) -> None: ...
 
 
 class KokoroTTS(TTSBackend):
@@ -43,6 +42,6 @@ class KokoroTTS(TTSBackend):
         sf.write(str(output_path), combined, 24000)
 
     def _cache_key(self, text: str) -> str:
-        data = f"{self._voice}:{text}".encode("utf-8")
+        data = f"{self._voice}:{text}".encode()
         digest = hashlib.sha256(data).hexdigest()[:16]
         return f"{self._voice}_{digest}"

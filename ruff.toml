@@ -1,0 +1,35 @@
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+
+[lint]
+select = [
+    "F",      # pyflakes — unused imports, undefined names, etc.
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort — import ordering
+    "N",      # pep8-naming
+    "UP",     # pyupgrade — modernize syntax
+    "B",      # flake8-bugbear — common bug patterns
+    "A",      # flake8-builtins — shadowing builtins
+    "SIM",    # flake8-simplify — simplifiable code
+    "RUF",    # ruff-specific rules
+    "C4",     # flake8-comprehensions — unnecessary list/dict comprehension
+    "PIE",    # flake8-pie — misc. lints
+    "PT",     # flake8-pytest-style
+    "RET",    # flake8-return — unnecessary return statements
+    "T20",    # flake8-print — print statements
+]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "T201",   # print — needed in CLI entry point
+    "RET504", # unnecessary assignment before return — sometimes aids readability
+    "PT018",  # compound assertions — acceptable in tests for readability
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["T201", "B011", "PT011"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

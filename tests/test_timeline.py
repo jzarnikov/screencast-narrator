@@ -47,7 +47,7 @@ def test_timeline_json_should_contain_highlight_start_and_end(tmp_path):
 
     timeline_file = tmp_path / "timeline.json"
     assert timeline_file.exists()
-    content = timeline_file.read_text()
+    content = timeline_file.read_text(encoding="utf-8")
     assert '"timestampMs"' in content
     assert '"endTimestampMs"' in content
     assert '"durationMs"' not in content
@@ -87,7 +87,7 @@ def test_narration_json_should_contain_end_timestamp_ms(tmp_path):
     timeline.add_narration("test", 100, 500)
     timeline.end_narration_bracket()
 
-    content = (tmp_path / "timeline.json").read_text()
+    content = (tmp_path / "timeline.json").read_text(encoding="utf-8")
     assert '"endTimestampMs"' in content
     assert '"timestampMs"' in content
     assert '"text"' in content
@@ -279,7 +279,7 @@ def test_action_json_should_contain_all_fields(tmp_path):
     timeline.add_narration("test", 100, 500)
     timeline.end_narration_bracket()
 
-    content = (tmp_path / "timeline.json").read_text()
+    content = (tmp_path / "timeline.json").read_text(encoding="utf-8")
     data = json.loads(content)
     action_event = next(e for e in data["events"] if e["type"] == "action")
     assert action_event["description"] == "Click state-forward"

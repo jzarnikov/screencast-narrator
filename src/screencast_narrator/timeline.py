@@ -159,7 +159,7 @@ class ScreencastTimeline:
         if self._video_recording_ended_at_ms >= 0:
             root["videoRecordingEndedAtMs"] = self._video_recording_ended_at_ms
         root["events"] = [_event_to_dict(e) for e in self._events]
-        timeline_file.write_text(json.dumps(root, indent=2))
+        timeline_file.write_text(json.dumps(root, indent=2), encoding="utf-8")
 
 
 def _event_to_dict(event: TimelineEvent) -> dict:
