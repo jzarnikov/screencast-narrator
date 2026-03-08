@@ -3,8 +3,22 @@
 from screencast_narrator.freeze_frames import FreezeFrameCalculator, NarrationSegment
 from screencast_narrator.merge import _build_narrations_from_sync
 from screencast_narrator.shared_config import load_shared_config
+from screencast_narrator_client.generated.storyboard_types import (
+    Model as StoryboardModel,
+    Narration as StoryboardNarration,
+)
 
 _SM = load_shared_config().sync_markers
+
+
+def _make_storyboard(texts: list[str]) -> StoryboardModel:
+    return StoryboardModel(
+        language="en",
+        narrations=[
+            StoryboardNarration(narration_id=i, text=text)
+            for i, text in enumerate(texts)
+        ],
+    )
 
 
 def assert_no_audio_overlap(audio_delays: list[int], narrations: list[NarrationSegment]) -> None:
@@ -17,6 +31,8 @@ def assert_no_audio_overlap(audio_delays: list[int], narrations: list[NarrationS
 
 
 def test_build_narrations_and_compute_delays():
+    texts = ["first narration", "second narration"]
+    storyboard = _make_storyboard(texts)
     sync_positions = {
         _SM.narration_start(0): 1.0,
         _SM.narration_end(0): 3.0,
@@ -24,9 +40,7 @@ def test_build_narrations_and_compute_delays():
         _SM.narration_end(1): 5.5,
     }
     narrations = _build_narrations_from_sync(
-        ["first narration", "second narration"],
-        [3000, 3000],
-        sync_positions,
+        storyboard, texts, [3000, 3000], sync_positions,
     )
     result = FreezeFrameCalculator(narrations, []).calculate()
     assert_no_audio_overlap(result.adjusted_timestamps, narrations)
@@ -46,17 +60,19 @@ def test_many_narrations_should_not_overlap():
         texts.append(f"narration {i}")
         audio_durations.append(4000)
 
-    narrations = _build_narrations_from_sync(texts, audio_durations, sync_positions)
+    storyboard = _make_storyboard(texts)
+    narrations = _build_narrations_from_sync(storyboard, texts, audio_durations, sync_positions)
     result = FreezeFrameCalculator(narrations, []).calculate()
     assert_no_audio_overlap(result.adjusted_timestamps, narrations)
 
 
 def test_single_narration_freeze_duration():
+    storyboard = _make_storyboard(["only narration"])
     sync_positions = {
         _SM.narration_start(0): 0.0,
         _SM.narration_end(0): 2.0,
     }
-    narrations = _build_narrations_from_sync(["only narration"], [5000], sync_positions)
+    narrations = _build_narrations_from_sync(storyboard, ["only narration"], [5000], sync_positions)
     result = FreezeFrameCalculator(narrations, []).calculate()
 
     bracket_duration = narrations[0].end_ms - narrations[0].start_ms

@@ -1,12 +1,17 @@
-"""Long-running drift test: browse Wikipedia for ~30 min, check for cumulative drift.
+"""Long-running drift test: replay Wikipedia search ~100x, check for cumulative drift.
 
 Skipped by default. Run with:
     DYLD_LIBRARY_PATH=/opt/homebrew/lib pytest tests/test_long_running_drift.py -v -s --run-long
+
+To skip the recording phase and reuse an existing recording:
+    DYLD_LIBRARY_PATH=/opt/homebrew/lib pytest tests/test_long_running_drift.py -v -s --run-long \
+        --reuse-recording=/private/tmp/long_drift_100/test_no_timestamp_drift_after_0/long-drift
 """
 
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -16,8 +21,9 @@ from pyzbar.pyzbar import decode as decode_qr
 
 from screencast_narrator.merge import process
 from screencast_narrator_client import Storyboard, SyncFrameStyle
+from wikipedia_search_recording import record_wikipedia_search
 
-REPLAY_COUNT = 20
+REPLAY_COUNT = 100
 
 
 def _record(output_dir: Path) -> None:
@@ -37,52 +43,12 @@ def _record(output_dir: Path) -> None:
         sb = Storyboard(output_dir, page, sync_frame_style=SyncFrameStyle(debug_overlay=True))
 
         for i in range(REPLAY_COUNT):
-            _wikipedia_search_iteration(sb, page, i)
+            record_wikipedia_search(sb, page, iteration=i)
             print(f"  Round {i + 1}/{REPLAY_COUNT} done")
 
+        sb.done()
         context.close()
         browser.close()
-
-
-def _wikipedia_search_iteration(sb: Storyboard, page, iteration: int) -> None:
-    def navigate(s: Storyboard) -> None:
-        def _nav(_s: Storyboard) -> None:
-            page.goto("https://en.wikipedia.org", wait_until="load")
-            page.wait_for_selector("input[name='search']", state="visible")
-        s.screen_action(_nav, description="Navigate to Wikipedia")
-
-    sb.narrate(navigate, text=f"Round {iteration + 1}. Navigating to Wikipedia.")
-
-    def search(s: Storyboard) -> None:
-        def _do(_s: Storyboard) -> None:
-            box = page.locator("input[name='search']").first
-            box.click()
-            box.fill("")
-            box.type("restaurant", delay=50)
-            box.press("Enter")
-            page.wait_for_selector("#firstHeading", state="visible")
-            page.wait_for_selector("#mw-content-text h2", state="visible")
-        s.screen_action(_do, description="Search for 'restaurant'")
-
-    sb.narrate(search, text="Searching for restaurant.")
-
-    headings = []
-    for el in page.locator("#mw-content-text h2 .mw-headline, #mw-content-text h2").all()[:8]:
-        try:
-            text = el.inner_text(timeout=2000).replace("[edit]", "").strip()
-            if text and text not in ("See also", "References", "External links", "Notes", "Further reading"):
-                headings.append((text, el))
-        except Exception:
-            continue
-
-    for heading_text, heading_el in headings[:3]:
-        def highlight(s: Storyboard, _el=heading_el) -> None:
-            def _hl(_s: Storyboard) -> None:
-                if _el is not None:
-                    s.highlight(_el)
-            s.screen_action(_hl, description=f"Highlight: {heading_text}")
-
-        sb.narrate(highlight, text=f"Section: {heading_text}.")
 
 
 def _decode_qr_ms(frame_path: Path) -> int | None:
@@ -96,16 +62,28 @@ def _decode_qr_ms(frame_path: Path) -> int | None:
 
 @pytest.mark.e2e
 @pytest.mark.long
-def test_no_timestamp_drift_after_long_session(tmp_path: Path) -> None:
-    output_dir = tmp_path / "long-drift"
+def test_no_timestamp_drift_after_long_session(request: pytest.FixtureRequest, tmp_path: Path) -> None:
+    reuse = request.config.getoption("--reuse-recording")
 
-    print(f"\nRecording {REPLAY_COUNT} iterations...")
-    _record(output_dir)
+    if reuse:
+        output_dir = Path(reuse)
+        assert output_dir.exists(), f"Recording dir not found: {output_dir}"
+        assert (output_dir / "storyboard.json").exists(), f"No storyboard.json in {output_dir}"
+        print(f"\nReusing existing recording from {output_dir}")
+        # Clean previous postprocessed output
+        for f in output_dir.glob("*.mp4"):
+            f.unlink()
+        for d in output_dir.glob("narration-tmp"):
+            shutil.rmtree(d)
+    else:
+        output_dir = tmp_path / "long-drift"
+        print(f"\nRecording {REPLAY_COUNT} iterations...")
+        _record(output_dir)
 
     print("Postprocessing...")
     process(output_dir, debug_overlay=True, font_size=48)
 
-    mp4 = output_dir / "long-drift.mp4"
+    mp4 = next(output_dir.glob("*.mp4"))
     assert mp4.exists()
 
     probe = subprocess.run(
@@ -116,7 +94,7 @@ def test_no_timestamp_drift_after_long_session(tmp_path: Path) -> None:
     print(f"Video: {duration_s:.1f}s ({duration_s / 60:.1f} min)")
 
     frames_dir = tmp_path / "frames"
-    frames_dir.mkdir()
+    frames_dir.mkdir(exist_ok=True)
 
     sample_times: list[float] = []
     t = 5.0

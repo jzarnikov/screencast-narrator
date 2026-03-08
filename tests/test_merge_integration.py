@@ -71,6 +71,7 @@ def test_segment_name():
 
 
 def test_build_narrations_from_sync():
+    storyboard = _make_storyboard(["first narration", "second narration"])
     sync_positions = {
         _SM.narration_start(0): 1.0,
         _SM.narration_end(0): 3.5,
@@ -78,6 +79,7 @@ def test_build_narrations_from_sync():
         _SM.narration_end(1): 6.0,
     }
     result = _build_narrations_from_sync(
+        storyboard,
         ["first narration", "second narration"],
         [2500, 3000],
         sync_positions,
@@ -89,15 +91,48 @@ def test_build_narrations_from_sync():
 
 
 def test_build_narrations_from_sync_missing_start():
+    storyboard = _make_storyboard(["text"])
     sync_positions = {_SM.narration_end(0): 3.5}
     with pytest.raises(RuntimeError, match="Missing START sync frame for narration 0"):
-        _build_narrations_from_sync(["text"], [2500], sync_positions)
+        _build_narrations_from_sync(storyboard, ["text"], [2500], sync_positions)
 
 
 def test_build_narrations_from_sync_missing_end():
     sync_positions = {_SM.narration_start(0): 1.0}
+    storyboard = StoryboardModel(
+        language="en",
+        narrations=[StoryboardNarration(narration_id=0, text="text")],
+    )
     with pytest.raises(RuntimeError, match="Missing END sync frame for narration 0"):
-        _build_narrations_from_sync(["text"], [2500], sync_positions)
+        _build_narrations_from_sync(storyboard, ["text"], [2500], sync_positions)
+
+
+def test_build_narrations_uses_last_action_end_as_narration_end():
+    storyboard = StoryboardModel(
+        language="en",
+        narrations=[
+            StoryboardNarration(
+                narration_id=0,
+                text="With actions",
+                screen_actions=[
+                    ScreenAction(type=ScreenActionType.navigate, screen_action_id=0, description="First"),
+                    ScreenAction(type=ScreenActionType.navigate, screen_action_id=1, description="Last"),
+                ],
+            )
+        ],
+    )
+    sync_positions = {
+        _SM.narration_start(0): 1.0,
+        _SM.action_start(0): 1.5,
+        _SM.action_end(0): 3.0,
+        _SM.action_start(1): 3.5,
+        _SM.action_end(1): 5.0,
+    }
+    result = _build_narrations_from_sync(storyboard, ["With actions"], [2500], sync_positions)
+
+    assert len(result) == 1
+    assert result[0].start_ms == 1000
+    assert result[0].end_ms == 5000
 
 
 def test_build_highlights_from_casted_actions():
@@ -322,3 +357,111 @@ def test_build_storyboard_from_sync_no_init_data():
 
     assert storyboard.language == "en"
     assert storyboard.narrations[0].text == "Solo"
+
+
+def test_build_storyboard_from_sync_without_narration_end_when_actions_exist():
+    sync_detection = SyncDetectionResult(
+        qr_spans=[
+            SyncFrameSpan(_SM.narration, 0, _SM.start, 10, 14),
+            SyncFrameSpan(_SM.action, 0, _SM.start, 20, 24),
+            SyncFrameSpan(_SM.action, 0, _SM.end, 40, 44),
+            SyncFrameSpan(_SM.action, 1, _SM.start, 50, 54),
+            SyncFrameSpan(_SM.action, 1, _SM.end, 70, 74),
+        ],
+        green_frame_indices=set(range(10, 15)) | set(range(20, 25)) | set(range(40, 45))
+            | set(range(50, 55)) | set(range(70, 75)),
+        total_frames=200,
+        narration_texts={0: "With actions no end"},
+        init_data={},
+    )
+    storyboard = _build_storyboard_from_sync(sync_detection)
+
+    assert len(storyboard.narrations) == 1
+    assert storyboard.narrations[0].text == "With actions no end"
+    actions = storyboard.narrations[0].screen_actions
+    assert len(actions) == 2
+    assert actions[0].screen_action_id == 0
+    assert actions[1].screen_action_id == 1
+
+
+def test_full_pipeline_narration_end_fallback_to_last_action_end():
+    from screencast_narrator.sync_detect import build_sync_position_map
+    from screencast_narrator.freeze_frames import FreezeFrameCalculator
+
+    sync_detection = SyncDetectionResult(
+        qr_spans=[
+            SyncFrameSpan(_SM.narration, 0, _SM.start, 10, 14),
+            SyncFrameSpan(_SM.action, 0, _SM.start, 20, 24),
+            SyncFrameSpan(_SM.action, 0, _SM.end, 60, 64),
+            SyncFrameSpan(_SM.narration, 1, _SM.start, 80, 84),
+            SyncFrameSpan(_SM.narration, 1, _SM.end, 120, 124),
+        ],
+        green_frame_indices=set(range(10, 15)) | set(range(20, 25)) | set(range(60, 65))
+            | set(range(80, 85)) | set(range(120, 125)),
+        total_frames=200,
+        narration_texts={0: "Has actions", 1: "Plain narration"},
+        init_data={"language": "en"},
+    )
+
+    storyboard = _build_storyboard_from_sync(sync_detection)
+    sync_positions = build_sync_position_map(sync_detection.qr_spans, sync_detection.green_frame_indices)
+
+    assert _SM.narration_end(0) not in sync_positions
+    assert _SM.narration_end(1) in sync_positions
+
+    texts = _extract_narration_texts(storyboard)
+    narrations = _build_narrations_from_sync(storyboard, texts, [2000, 2000], sync_positions)
+
+    assert len(narrations) == 2
+    action_end_pos = sync_positions[_SM.action_end(0)]
+    assert narrations[0].end_ms == int(action_end_pos * 1000)
+
+    narration_end_pos = sync_positions[_SM.narration_end(1)]
+    assert narrations[1].end_ms == int(narration_end_pos * 1000)
+
+    result = FreezeFrameCalculator(narrations, []).calculate()
+    assert len(result.adjusted_timestamps) == 2
+
+
+def test_full_pipeline_multiple_narrations_mixed_with_and_without_actions():
+    from screencast_narrator.sync_detect import build_sync_position_map
+    from screencast_narrator.freeze_frames import FreezeFrameCalculator
+
+    sync_detection = SyncDetectionResult(
+        qr_spans=[
+            SyncFrameSpan(_SM.narration, 0, _SM.start, 10, 14),
+            SyncFrameSpan(_SM.action, 0, _SM.start, 20, 24),
+            SyncFrameSpan(_SM.action, 0, _SM.end, 40, 44),
+            # narration 0 has no END span — fallback to action 0 END
+            SyncFrameSpan(_SM.narration, 1, _SM.start, 60, 64),
+            SyncFrameSpan(_SM.narration, 1, _SM.end, 90, 94),
+            # narration 1 has END span — no actions
+            SyncFrameSpan(_SM.narration, 2, _SM.start, 110, 114),
+            SyncFrameSpan(_SM.action, 1, _SM.start, 120, 124),
+            SyncFrameSpan(_SM.action, 1, _SM.end, 140, 144),
+            SyncFrameSpan(_SM.action, 2, _SM.start, 150, 154),
+            SyncFrameSpan(_SM.action, 2, _SM.end, 170, 174),
+            # narration 2 has no END span — fallback to action 2 END
+        ],
+        green_frame_indices=set(range(10, 15)) | set(range(20, 25)) | set(range(40, 45))
+            | set(range(60, 65)) | set(range(90, 95))
+            | set(range(110, 115)) | set(range(120, 125)) | set(range(140, 145))
+            | set(range(150, 155)) | set(range(170, 175)),
+        total_frames=250,
+        narration_texts={0: "With action", 1: "Plain", 2: "With two actions"},
+        init_data={"language": "en"},
+    )
+
+    storyboard = _build_storyboard_from_sync(sync_detection)
+    sync_positions = build_sync_position_map(sync_detection.qr_spans, sync_detection.green_frame_indices)
+    texts = _extract_narration_texts(storyboard)
+
+    narrations = _build_narrations_from_sync(storyboard, texts, [2000, 2000, 2000], sync_positions)
+
+    assert len(narrations) == 3
+    assert narrations[0].end_ms == int(sync_positions[_SM.action_end(0)] * 1000)
+    assert narrations[1].end_ms == int(sync_positions[_SM.narration_end(1)] * 1000)
+    assert narrations[2].end_ms == int(sync_positions[_SM.action_end(2)] * 1000)
+
+    result = FreezeFrameCalculator(narrations, []).calculate()
+    assert len(result.adjusted_timestamps) == 3

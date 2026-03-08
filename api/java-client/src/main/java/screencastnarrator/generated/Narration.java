@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonPropertyOrder({
     "narrationId",
     "text",
+    "voice",
     "translations",
     "screenActions"
 })
@@ -28,6 +29,8 @@ public class Narration {
     private Integer narrationId;
     @JsonProperty("text")
     private String text;
+    @JsonProperty("voice")
+    private String voice;
     /**
      * Translations keyed by language code
      * 
@@ -50,10 +53,11 @@ public class Narration {
      * @param translations
      *     Translations keyed by language code.
      */
-    public Narration(Integer narrationId, String text, Translations translations, List<ScreenAction> screenActions) {
+    public Narration(Integer narrationId, String text, String voice, Translations translations, List<ScreenAction> screenActions) {
         super();
         this.narrationId = narrationId;
         this.text = text;
+        this.voice = voice;
         this.translations = translations;
         this.screenActions = screenActions;
     }
@@ -86,6 +90,16 @@ public class Narration {
     @JsonProperty("text")
     public void setText(String text) {
         this.text = text;
+    }
+
+    @JsonProperty("voice")
+    public String getVoice() {
+        return voice;
+    }
+
+    @JsonProperty("voice")
+    public void setVoice(String voice) {
+        this.voice = voice;
     }
 
     /**
@@ -128,6 +142,10 @@ public class Narration {
         sb.append('=');
         sb.append(((this.text == null)?"<null>":this.text));
         sb.append(',');
+        sb.append("voice");
+        sb.append('=');
+        sb.append(((this.voice == null)?"<null>":this.voice));
+        sb.append(',');
         sb.append("translations");
         sb.append('=');
         sb.append(((this.translations == null)?"<null>":this.translations));
@@ -147,6 +165,7 @@ public class Narration {
     @Override
     public int hashCode() {
         int result = 1;
+        result = ((result* 31)+((this.voice == null)? 0 :this.voice.hashCode()));
         result = ((result* 31)+((this.text == null)? 0 :this.text.hashCode()));
         result = ((result* 31)+((this.screenActions == null)? 0 :this.screenActions.hashCode()));
         result = ((result* 31)+((this.translations == null)? 0 :this.translations.hashCode()));
@@ -163,7 +182,7 @@ public class Narration {
             return false;
         }
         Narration rhs = ((Narration) other);
-        return (((((this.text == rhs.text)||((this.text!= null)&&this.text.equals(rhs.text)))&&((this.screenActions == rhs.screenActions)||((this.screenActions!= null)&&this.screenActions.equals(rhs.screenActions))))&&((this.translations == rhs.translations)||((this.translations!= null)&&this.translations.equals(rhs.translations))))&&((this.narrationId == rhs.narrationId)||((this.narrationId!= null)&&this.narrationId.equals(rhs.narrationId))));
+        return ((((((this.voice == rhs.voice)||((this.voice!= null)&&this.voice.equals(rhs.voice)))&&((this.text == rhs.text)||((this.text!= null)&&this.text.equals(rhs.text))))&&((this.screenActions == rhs.screenActions)||((this.screenActions!= null)&&this.screenActions.equals(rhs.screenActions))))&&((this.translations == rhs.translations)||((this.translations!= null)&&this.translations.equals(rhs.translations))))&&((this.narrationId == rhs.narrationId)||((this.narrationId!= null)&&this.narrationId.equals(rhs.narrationId))));
     }
 
 }

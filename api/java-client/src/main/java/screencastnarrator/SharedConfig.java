@@ -49,6 +49,7 @@ public record SharedConfig(SyncMarkers syncMarkers, SyncFrameConfig syncFrame, H
                 SyncType.NARRATION,
                 SyncType.ACTION,
                 SyncType.HIGHLIGHT,
+                SyncType.DONE,
                 smNode.get("separator").asText(),
                 MarkerPosition.START,
                 MarkerPosition.END
@@ -57,7 +58,9 @@ public record SharedConfig(SyncMarkers syncMarkers, SyncFrameConfig syncFrame, H
         SyncFrameConfig syncFrame = new SyncFrameConfig(
                 sf.get("qrSize").asInt(),
                 sf.get("displayDurationMs").asInt(),
+                sf.get("doneDisplayDurationMs").asInt(),
                 sf.get("postRemovalGapMs").asInt(),
+                sf.get("backgroundColor").asText(),
                 resolveJs(sf.get("injectJs").asText()),
                 resolveJs(sf.get("removeJs").asText())
         );
@@ -88,6 +91,7 @@ public record SharedConfig(SyncMarkers syncMarkers, SyncFrameConfig syncFrame, H
             SyncType narration,
             SyncType action,
             SyncType highlight,
+            SyncType done,
             String separator,
             MarkerPosition start,
             MarkerPosition end
@@ -124,10 +128,16 @@ public record SharedConfig(SyncMarkers syncMarkers, SyncFrameConfig syncFrame, H
     public record SyncFrameConfig(
             int qrSize,
             int displayDurationMs,
+            int doneDisplayDurationMs,
             int postRemovalGapMs,
+            String backgroundColor,
             String injectJs,
             String removeJs
-    ) {}
+    ) {
+        public String resolvedInjectJs() {
+            return injectJs.replace("{{backgroundColor}}", backgroundColor);
+        }
+    }
 
     public record HighlightConfig(
             int scrollWaitMs,

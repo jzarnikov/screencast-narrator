@@ -92,6 +92,7 @@ def record(output_dir: Path) -> None:
                 text=f"Section {i + 1} of the article is titled: {heading_text}.",
             )
 
+        storyboard.done()
         context.close()
         browser.close()
 

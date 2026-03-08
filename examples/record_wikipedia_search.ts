@@ -116,6 +116,7 @@ async function record(outputDir: string): Promise<void> {
     );
   }
 
+  await storyboard.done();
   await context.close();
   await browser.close();
 }

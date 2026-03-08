@@ -104,6 +104,7 @@ public class RecordWikipediaSearch {
                     }));
             }
 
+            storyboard.done();
             context.close();
             browser.close();
         }

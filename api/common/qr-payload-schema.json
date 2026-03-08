@@ -4,8 +4,8 @@
   "definitions": {
     "syncType": {
       "type": "string",
-      "enum": ["init", "nar", "act", "hlt"],
-      "description": "Sync frame type: init (initialization), nar (narration), act (screen action), hlt (highlight)"
+      "enum": ["init", "nar", "act", "hlt", "done"],
+      "description": "Sync frame type: init (initialization), nar (narration), act (screen action), hlt (highlight), done (recording complete)"
     },
     "markerPosition": {
       "type": "string",
@@ -72,6 +72,14 @@
       },
       "additionalProperties": false
     },
+    "donePayload": {
+      "type": "object",
+      "required": ["t"],
+      "properties": {
+        "t": { "const": "done" }
+      },
+      "additionalProperties": false
+    },
     "continuationWrapper": {
       "type": "object",
       "required": ["_c", "d"],
@@ -93,6 +101,7 @@
     { "$ref": "#/definitions/narrationPayload" },
     { "$ref": "#/definitions/actionPayload" },
     { "$ref": "#/definitions/highlightPayload" },
+    { "$ref": "#/definitions/donePayload" },
     { "$ref": "#/definitions/continuationWrapper" }
   ]
 }

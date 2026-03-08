@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from screencast_narrator.ffmpeg import exec_ffmpeg, probe_duration_ms, require_command, secs
 from screencast_narrator.freeze_frames import (
@@ -83,7 +86,7 @@ def process(
 
     if tts_backend is None:
         tts_backend = KokoroTTS()
-    _generate_tts_audio(narration_texts, audio_dir, tts_backend)
+    _generate_tts_audio(storyboard, audio_dir, tts_backend)
 
     audio_durations: list[int] = []
     for i in range(len(narration_texts)):
@@ -160,13 +163,34 @@ def _extract_narration_texts(storyboard: StoryboardModel) -> list[str]:
     return [n.text or "" for n in storyboard.narrations]
 
 
-def _generate_tts_audio(texts: list[str], audio_dir: Path, tts_backend: TTSBackend) -> None:
-    for i, text in enumerate(texts):
+def _resolve_voice(
+    storyboard: StoryboardModel,
+    narration: StoryboardNarration,
+) -> str | None:
+    voices = storyboard.options.voices if storyboard.options and storyboard.options.voices else {}
+    if not voices:
+        return None
+    alias = narration.voice
+    if alias is None:
+        first_alias = next(iter(voices), None)
+        if first_alias is None:
+            return None
+        alias = first_alias
+    voice_map = voices.get(alias)
+    if voice_map is None:
+        return None
+    return voice_map.get(storyboard.language)
+
+
+def _generate_tts_audio(storyboard: StoryboardModel, audio_dir: Path, tts_backend: TTSBackend) -> None:
+    for i, narration in enumerate(storyboard.narrations):
+        text = narration.text or ""
         if not text:
             continue
         wav_file = audio_dir / _segment_name(i)
         if not wav_file.exists():
-            tts_backend.generate(text, wav_file)
+            voice = _resolve_voice(storyboard, narration)
+            tts_backend.generate(text, wav_file, voice=voice)
 
 
 class IncompleteSyncError(RuntimeError):
@@ -176,6 +200,7 @@ class IncompleteSyncError(RuntimeError):
 
 
 def _build_narrations_from_sync(
+    storyboard: StoryboardModel,
     narration_texts: list[str],
     audio_durations: list[int],
     sync_positions: dict[str, float],
@@ -189,13 +214,31 @@ def _build_narrations_from_sync(
                 f"Missing START sync frame for narration {i}", narrations
             )
         if end_key not in sync_positions:
-            raise IncompleteSyncError(
-                f"Missing END sync frame for narration {i}", narrations
-            )
+            end_key = _find_last_action_end_key(storyboard, i, sync_positions)
+            if end_key is None:
+                raise IncompleteSyncError(
+                    f"Missing END sync frame for narration {i}", narrations
+                )
         start_ms = int(sync_positions[start_key] * 1000)
         end_ms = int(sync_positions[end_key] * 1000)
         narrations.append(NarrationSegment(start_ms, end_ms, text, audio_durations[i]))
     return narrations
+
+
+def _find_last_action_end_key(
+    storyboard: StoryboardModel, narration_index: int, sync_positions: dict[str, float]
+) -> str | None:
+    if narration_index >= len(storyboard.narrations):
+        return None
+    actions = storyboard.narrations[narration_index].screen_actions or []
+    for action in reversed(actions):
+        if action.type == ScreenActionType.highlight:
+            key = _SM.highlight_end(action.screen_action_id)
+        else:
+            key = _SM.action_end(action.screen_action_id)
+        if key in sync_positions:
+            return key
+    return None
 
 
 def _build_highlights(
@@ -242,7 +285,7 @@ def _run_sync_frame_pipeline(
     stripped_duration_ms = probe_duration_ms(stripped_video)
 
     try:
-        narrations = _build_narrations_from_sync(narration_texts, audio_durations, sync_positions)
+        narrations = _build_narrations_from_sync(storyboard, narration_texts, audio_durations, sync_positions)
     except IncompleteSyncError as exc:
         target_dir = output_file.parent
         _write_partial_diagnostics(
@@ -307,6 +350,47 @@ def _run_sync_frame_pipeline(
 # --- Video building ---
 
 
+def _extract_freeze_pngs(
+    video_file: Path,
+    sorted_ff: list[FreezeFrame],
+    video_duration_s: float,
+    temp_dir: Path,
+) -> None:
+    frame_times: list[tuple[int, float]] = []
+    for i, ff in enumerate(sorted_ff):
+        extract_s = min(ff.time_ms / 1000.0, max(video_duration_s - 0.04, 0.0))
+        frame_times.append((i, extract_s))
+
+    frame_nums = [round(t * 25) for _, t in frame_times]
+    select_expr = "+".join(f"eq(n,{n})" for n in frame_nums)
+
+    freeze_dir = temp_dir / "freeze_pngs"
+    freeze_dir.mkdir(exist_ok=True)
+
+    filter_file = temp_dir / "freeze_select.txt"
+    filter_file.write_text(f"select='{select_expr}',setpts=N/TB", encoding="utf-8")
+
+    exec_ffmpeg(
+        "-y", "-i", str(video_file),
+        "-filter_script:v", str(filter_file),
+        "-vsync", "vfr",
+        str(freeze_dir / "f_%04d.png"),
+    )
+
+    extracted = sorted(freeze_dir.glob("f_*.png"))
+    for idx, (i, _) in enumerate(frame_times):
+        target = temp_dir / f"freeze_{i:03d}.png"
+        if idx < len(extracted):
+            extracted[idx].rename(target)
+        else:
+            exec_ffmpeg(
+                "-y", "-i", str(video_file),
+                "-ss", secs(frame_times[i][1]),
+                "-vframes", "1",
+                str(target),
+            )
+
+
 def _build_extended_video(
     video_file: Path,
     freeze_frames: list[FreezeFrame],
@@ -317,6 +401,9 @@ def _build_extended_video(
         return video_file
 
     sorted_ff = sorted(freeze_frames, key=lambda f: f.time_ms)
+
+    _extract_freeze_pngs(video_file, sorted_ff, video_duration_s, temp_dir)
+
     segment_files: list[Path] = []
     last_cut_s = 0.0
 
@@ -348,9 +435,6 @@ def _build_extended_video(
             segment_files.append(seg_file)
 
         freeze_img = temp_dir / f"freeze_{i:03d}.png"
-        extract_s = min(cut_s, max(video_duration_s - 0.04, 0.0))
-        exec_ffmpeg("-y", "-i", str(video_file), "-ss", secs(extract_s), "-vframes", "1", str(freeze_img))
-
         freeze_seg = temp_dir / f"freeze_seg_{i:03d}.mp4"
         exec_ffmpeg(
             "-y",
@@ -575,6 +659,72 @@ _LANG_TO_ISO639 = {
 }
 
 
+_AUDIO_BATCH_SIZE = 50
+
+
+def _mix_audio_batch(
+    wav_entries: list[tuple[Path, int]],
+    pad_dur: str,
+    output_wav: Path,
+) -> None:
+    n = len(wav_entries)
+    filter_file = output_wav.parent / f"audio_filter_{output_wav.stem}.txt"
+
+    filter_parts = []
+    amix_labels = []
+    for idx, (_, delay_ms) in enumerate(wav_entries):
+        filter_parts.append(f"[{idx}:a]adelay={delay_ms}|{delay_ms},apad=whole_dur={pad_dur}[a{idx}]")
+        amix_labels.append(f"[a{idx}]")
+
+    mix_filter = ";".join(filter_parts) + ";" + "".join(amix_labels) + f"amix=inputs={n}:duration=longest[amixed];[amixed]volume={n}.0[aout]"
+    filter_file.write_text(mix_filter, encoding="utf-8")
+
+    inputs: list[str] = []
+    for wav, _ in wav_entries:
+        inputs.extend(["-i", str(wav)])
+
+    exec_ffmpeg("-y", *inputs, "-filter_complex_script", str(filter_file), "-map", "[aout]", str(output_wav))
+
+
+def _premix_audio(
+    narrations: list[NarrationSegment],
+    adjusted_timestamps: list[int],
+    audio_dir: Path,
+    mixed_wav: Path,
+) -> bool:
+    wav_entries: list[tuple[Path, int]] = []
+    for i in range(len(narrations)):
+        wav_file = audio_dir / _segment_name(i)
+        if not wav_file.exists():
+            continue
+        delay_ms = max(0, adjusted_timestamps[i])
+        wav_entries.append((wav_file, delay_ms))
+
+    if not wav_entries:
+        return False
+
+    max_audio_end_ms = max(
+        max(0, adjusted_timestamps[i]) + narrations[i].audio_duration_ms
+        for i in range(len(narrations))
+    )
+    pad_dur = secs(max_audio_end_ms / 1000.0)
+
+    if len(wav_entries) <= _AUDIO_BATCH_SIZE:
+        _mix_audio_batch(wav_entries, pad_dur, mixed_wav)
+        return True
+
+    batch_wavs: list[Path] = []
+    for batch_idx in range(0, len(wav_entries), _AUDIO_BATCH_SIZE):
+        batch = wav_entries[batch_idx:batch_idx + _AUDIO_BATCH_SIZE]
+        batch_wav = mixed_wav.parent / f"audio_batch_{batch_idx}.wav"
+        _mix_audio_batch(batch, pad_dur, batch_wav)
+        batch_wavs.append(batch_wav)
+
+    final_entries = [(bw, 0) for bw in batch_wavs]
+    _mix_audio_batch(final_entries, pad_dur, mixed_wav)
+    return True
+
+
 def _overlay_audio(
     video_file: Path,
     narrations: list[NarrationSegment],
@@ -584,6 +734,15 @@ def _overlay_audio(
     overlay: OverlayResult | None = None,
     srt_files: list[tuple[Path, str]] | None = None,
 ) -> None:
+    temp_dir = output_file.parent
+    mixed_wav = temp_dir / "premixed_audio.wav"
+    has_audio = _premix_audio(narrations, adjusted_timestamps, audio_dir, mixed_wav)
+
+    max_audio_end_ms = max(
+        (max(0, adjusted_timestamps[i]) + narrations[i].audio_duration_ms for i in range(len(narrations))),
+        default=0,
+    )
+
     inputs = ["-i", str(video_file)]
     next_input_idx = 1
 
@@ -593,46 +752,17 @@ def _overlay_audio(
         qr_input_idx = next_input_idx
         next_input_idx += 1
 
-    filter_parts: list[str] = []
-    amix_inputs: list[str] = []
-    audio_count = 0
-
-    max_audio_end_ms = max(
-        (max(0, adjusted_timestamps[i]) + narrations[i].audio_duration_ms for i in range(len(narrations))),
-        default=0,
-    )
-    pad_dur = secs(max_audio_end_ms / 1000.0)
-
-    for i in range(len(narrations)):
-        wav_file = audio_dir / _segment_name(i)
-        if not wav_file.exists():
-            continue
-        inputs.extend(["-i", str(wav_file)])
-        input_idx = next_input_idx
-        next_input_idx += 1
-        audio_count += 1
-        delay_ms = max(0, adjusted_timestamps[i])
-        filter_parts.append(f"[{input_idx}:a]adelay={delay_ms}|{delay_ms},apad=whole_dur={pad_dur}[a{i}]")
-        amix_inputs.append(f"[a{i}]")
-
-    has_audio = len(amix_inputs) > 0
-
+    audio_input_idx: int | None = None
     if has_audio:
-        n = len(amix_inputs)
-        mix_filter = "".join(amix_inputs) + f"amix=inputs={n}:duration=longest[amixed];[amixed]volume={n}.0[aout]"
+        inputs.extend(["-i", str(mixed_wav)])
+        audio_input_idx = next_input_idx
+        next_input_idx += 1
 
     if overlay is not None and qr_input_idx is not None:
         video_filter = f"[0:v]{overlay.filter_str}[_vtmp];[_vtmp][{qr_input_idx}:v]overlay=x=W-w-10:y=H-h-10[vout]"
-        if has_audio:
-            full_filter = video_filter + ";" + ";".join(filter_parts) + ";" + mix_filter
-        else:
-            full_filter = video_filter
         video_map = "[vout]"
-    elif has_audio:
-        full_filter = ";".join(filter_parts) + ";" + mix_filter
-        video_map = "0:v"
     else:
-        full_filter = None
+        video_filter = None
         video_map = "0:v"
 
     srt_input_indices: list[tuple[int, str]] = []
@@ -646,11 +776,15 @@ def _overlay_audio(
             srt_input_indices.append((srt_idx, lang))
 
     cmd = ["-y", *inputs]
-    if full_filter is not None:
-        cmd.extend(["-filter_complex", full_filter])
-    cmd.extend(["-map", video_map])
-    if has_audio:
-        cmd.extend(["-map", "[aout]"])
+    if video_filter is not None:
+        filter_script = temp_dir / "filter_complex.txt"
+        filter_script.write_text(video_filter, encoding="utf-8")
+        cmd.extend(["-filter_complex_script", str(filter_script)])
+        cmd.extend(["-map", video_map])
+    else:
+        cmd.extend(["-map", video_map])
+    if has_audio and audio_input_idx is not None:
+        cmd.extend(["-map", f"{audio_input_idx}:a"])
     for srt_idx, _ in srt_input_indices:
         cmd.extend(["-map", str(srt_idx)])
     cmd.extend([

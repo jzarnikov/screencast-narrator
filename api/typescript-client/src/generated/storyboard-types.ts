@@ -32,6 +32,14 @@ export interface StoryboardSchema {
   options?: {
     highlightStyle?: HighlightStyle;
     syncFrameStyle?: SyncFrameStyle;
+    /**
+     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     */
+    voices?: {
+      [k: string]: {
+        [k: string]: string;
+      };
+    };
   };
 }
 /**
@@ -41,6 +49,7 @@ export interface StoryboardSchema {
 export interface Narration {
   narrationId: number;
   text?: string;
+  voice?: string;
   /**
    * Translations keyed by language code
    */
@@ -91,39 +100,51 @@ export interface HighlightStyle {
    */
   padding?: number;
   /**
-   * Time to wait after scrolling to the element
+   * Time to wait after scrolling the element into view
    */
   scrollWaitMs?: number;
   /**
-   * Time to wait after removing the highlight
+   * Time to wait after removing the highlight overlay
    */
   removeWaitMs?: number;
   /**
-   * Minimum line width for the highlight stroke
+   * Minimum stroke width of the hand-drawn highlight
    */
   lineWidthMin?: number;
   /**
-   * Maximum line width for the highlight stroke
+   * Maximum stroke width of the hand-drawn highlight
    */
   lineWidthMax?: number;
   /**
-   * Number of segments in the highlight stroke
+   * Number of line segments in the hand-drawn rectangle
    */
   segments?: number;
   /**
-   * Coverage of the highlight stroke around the element
+   * How much of the rectangle perimeter is drawn (0-1)
    */
   coverage?: number;
 }
 /**
- * User-customizable sync frame appearance. All fields are optional — unset fields inherit from the shared config defaults.
+ * User-customizable sync frame timing and overlay settings. All fields are optional — unset fields inherit from the shared config defaults.
  *
  * This interface was referenced by `StoryboardSchema`'s JSON-Schema
  * via the `definition` "syncFrameStyle".
  */
 export interface SyncFrameStyle {
+  /**
+   * How long the green QR overlay is shown per frame (default 160ms = ~4 frames at 25fps)
+   */
   displayDurationMs?: number;
+  /**
+   * Gap after removing the overlay before the next action (default 80ms)
+   */
   postRemovalGapMs?: number;
+  /**
+   * Show narration text as subtitle overlay during recording
+   */
   debugOverlay?: boolean;
+  /**
+   * Font size for the debug subtitle overlay (default 24)
+   */
   fontSize?: number;
 }

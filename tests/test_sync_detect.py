@@ -141,8 +141,28 @@ def test_codec_shifted_green_frame_2_is_detected():
     assert is_green_frame(img) is True
 
 
-def test_green_frame_with_fake_qr_raises_on_decode():
+def test_green_frame_with_unreadable_qr_returns_none():
     img = Image.open(_RESOURCES / "fake_qr_green.png")
     assert is_green_frame(img) is True
-    with pytest.raises(RuntimeError, match="QR decode failed"):
-        decode_qr(img, 42)
+    assert decode_qr(img, 42) is None
+
+
+def test_all_green_frames_in_sequence_unreadable_raises():
+    """If a whole sequence of consecutive green frames has no readable QR,
+    that's a real error — not just a transition frame. Uses the real partial
+    sync frame 3 times to simulate a fully corrupt sequence."""
+    from screencast_narrator.sync_detect import check_green_sequence_has_decode
+
+    img = Image.open(_RESOURCES / "partial_sync_frame.png")
+    for _ in range(3):
+        assert is_green_frame(img) is True
+        assert decode_qr(img, 42) is None
+
+    with pytest.raises(RuntimeError, match="green frames.*no readable QR"):
+        check_green_sequence_has_decode(decoded_in_sequence=False, green_seq_start=10, green_seq_end=12)
+
+
+def test_green_sequence_with_one_good_frame_does_not_raise():
+    from screencast_narrator.sync_detect import check_green_sequence_has_decode
+
+    assert check_green_sequence_has_decode(decoded_in_sequence=True, green_seq_start=10, green_seq_end=14) is None

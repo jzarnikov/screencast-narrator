@@ -10,7 +10,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({
     "highlightStyle",
-    "syncFrameStyle"
+    "syncFrameStyle",
+    "voices"
 })
 @Generated("jsonschema2pojo")
 public class Options {
@@ -29,6 +30,13 @@ public class Options {
     @JsonProperty("syncFrameStyle")
     @JsonPropertyDescription("User-customizable sync frame timing and overlay settings. All fields are optional \u2014 unset fields inherit from the shared config defaults.")
     private SyncFrameStyle syncFrameStyle;
+    /**
+     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * 
+     */
+    @JsonProperty("voices")
+    @JsonPropertyDescription("Named voice identities mapping alias to language-specific TTS voices (e.g. {\"nathaly\": {\"en\": \"bf_alice\", \"de\": \"de_natasha\"}})")
+    private Voices voices;
 
     /**
      * No args constructor for use in serialization
@@ -37,10 +45,16 @@ public class Options {
     public Options() {
     }
 
-    public Options(HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle) {
+    /**
+     * 
+     * @param voices
+     *     Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}}).
+     */
+    public Options(HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle, Voices voices) {
         super();
         this.highlightStyle = highlightStyle;
         this.syncFrameStyle = syncFrameStyle;
+        this.voices = voices;
     }
 
     /**
@@ -79,6 +93,24 @@ public class Options {
         this.syncFrameStyle = syncFrameStyle;
     }
 
+    /**
+     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * 
+     */
+    @JsonProperty("voices")
+    public Voices getVoices() {
+        return voices;
+    }
+
+    /**
+     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * 
+     */
+    @JsonProperty("voices")
+    public void setVoices(Voices voices) {
+        this.voices = voices;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -90,6 +122,10 @@ public class Options {
         sb.append("syncFrameStyle");
         sb.append('=');
         sb.append(((this.syncFrameStyle == null)?"<null>":this.syncFrameStyle));
+        sb.append(',');
+        sb.append("voices");
+        sb.append('=');
+        sb.append(((this.voices == null)?"<null>":this.voices));
         sb.append(',');
         if (sb.charAt((sb.length()- 1)) == ',') {
             sb.setCharAt((sb.length()- 1), ']');
@@ -103,6 +139,7 @@ public class Options {
     public int hashCode() {
         int result = 1;
         result = ((result* 31)+((this.syncFrameStyle == null)? 0 :this.syncFrameStyle.hashCode()));
+        result = ((result* 31)+((this.voices == null)? 0 :this.voices.hashCode()));
         result = ((result* 31)+((this.highlightStyle == null)? 0 :this.highlightStyle.hashCode()));
         return result;
     }
@@ -116,7 +153,7 @@ public class Options {
             return false;
         }
         Options rhs = ((Options) other);
-        return (((this.syncFrameStyle == rhs.syncFrameStyle)||((this.syncFrameStyle!= null)&&this.syncFrameStyle.equals(rhs.syncFrameStyle)))&&((this.highlightStyle == rhs.highlightStyle)||((this.highlightStyle!= null)&&this.highlightStyle.equals(rhs.highlightStyle))));
+        return ((((this.syncFrameStyle == rhs.syncFrameStyle)||((this.syncFrameStyle!= null)&&this.syncFrameStyle.equals(rhs.syncFrameStyle)))&&((this.voices == rhs.voices)||((this.voices!= null)&&this.voices.equals(rhs.voices))))&&((this.highlightStyle == rhs.highlightStyle)||((this.highlightStyle!= null)&&this.highlightStyle.equals(rhs.highlightStyle))));
     }
 
 }

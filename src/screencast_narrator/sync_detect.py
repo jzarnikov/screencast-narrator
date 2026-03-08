@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from PIL import Image
 from pyzbar.pyzbar import decode as pyzbar_decode
@@ -66,32 +69,71 @@ def is_green_frame(img: Image.Image) -> bool:
     return green_count >= total * 3 // 4
 
 
-def decode_qr(img: Image.Image, frame_index: int) -> str:
+def decode_qr(img: Image.Image, frame_index: int) -> str | None:
     results = pyzbar_decode(img)
     if not results:
         bw = img.convert("L").point(lambda x: 255 if x > 128 else 0)
         results = pyzbar_decode(bw)
     if not results:
-        raise RuntimeError(
-            f"QR decode failed on green frame {frame_index} ({frame_index * 0.04:.3f}s). "
-            f"Every green frame MUST contain a readable QR code."
+        log.warning(
+            "QR decode failed on green frame %d (%.3fs) — likely a compositor transition frame, skipping.",
+            frame_index, frame_index * 0.04,
         )
+        return None
     return results[0].data.decode("utf-8")
+
+
+def check_green_sequence_has_decode(decoded_in_sequence: bool, green_seq_start: int, green_seq_end: int) -> None:
+    if not decoded_in_sequence:
+        raise RuntimeError(
+            f"Consecutive green frames {green_seq_start}-{green_seq_end} "
+            f"({green_seq_start * 0.04:.3f}s-{green_seq_end * 0.04:.3f}s) "
+            f"with no readable QR code. Every sync frame sequence must contain "
+            f"at least one decodable QR frame."
+        )
 
 
 def _parse_qr_payload(decoded: str) -> dict:
     return json.loads(decoded)
 
 
+def _sample_pixels_raw(raw_data: bytes, width: int, height: int) -> bool:
+    """Fast green check on raw RGB data. Intentionally lenient — false positives are
+    filtered out by QR decode, but false negatives would miss sync frames entirely."""
+    stride = width * 3
+    margin_x = max(1, width // 10)
+    margin_y = max(1, height // 10)
+    sample_x = [margin_x, width // 4, width // 2, 3 * width // 4, width - 1 - margin_x]
+    sample_y = [margin_y, height // 4, height // 2, 3 * height // 4, height - 1 - margin_y]
+    green_count = 0
+    total = 0
+    for sx in sample_x:
+        for sy in sample_y:
+            if sx == width // 2 and sy == height // 2:
+                continue
+            total += 1
+            offset = sy * stride + sx * 3
+            r, g, b = raw_data[offset], raw_data[offset + 1], raw_data[offset + 2]
+            if g > 120 and (g - r) > 40 and (g - b) > 40:
+                green_count += 1
+    return green_count >= total // 2
+
+
 def detect_sync_frames(video_path: Path, temp_dir: Path) -> SyncDetectionResult:
-    from screencast_narrator.ffmpeg import exec_ffmpeg
+    import subprocess
+    from screencast_narrator.ffmpeg import probe_dimensions
+
+    width, height = probe_dimensions(video_path)
+    frame_size = width * height * 3
+
+    pipe = subprocess.Popen(
+        ["ffmpeg", "-i", str(video_path), "-r", "25",
+         "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
 
     frames_dir = temp_dir / "sync_frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
-
-    exec_ffmpeg("-y", "-i", str(video_path), "-r", "25", str(frames_dir / "frame_%06d.png"))
-
-    frame_paths = sorted(frames_dir.glob("*.png"))
 
     markers: list[SyncMarker] = []
     green_frame_indices: set[int] = set()
@@ -103,17 +145,57 @@ def detect_sync_frames(video_path: Path, temp_dir: Path) -> SyncDetectionResult:
     continuation_buffer: list[str | None] = []
     continuation_total: int = 0
     init_seen = False
+    done_seen = False
 
-    for i, frame_path in enumerate(frame_paths):
-        img = Image.open(frame_path)
-        if not is_green_frame(img):
+    green_seq_start: int = -1
+    green_seq_decoded: bool = False
+
+    frame_idx = 0
+    total_frames = 0
+    last_log_frame = 0
+    while True:
+        raw = pipe.stdout.read(frame_size)
+        if len(raw) < frame_size:
+            break
+        total_frames += 1
+
+        if frame_idx - last_log_frame >= 2500:
+            log.info("Scanning frame %d (%.1fs), %d green frames found so far",
+                     frame_idx, frame_idx / 25.0, len(green_frame_indices))
+            last_log_frame = frame_idx
+
+        if not _sample_pixels_raw(raw, width, height):
+            if green_seq_start >= 0:
+                check_green_sequence_has_decode(green_seq_decoded, green_seq_start, frame_idx - 1)
+                green_seq_start = -1
             if continuation_buffer:
                 continuation_buffer = []
                 continuation_total = 0
+            frame_idx += 1
             continue
 
-        green_frame_indices.add(i)
-        decoded = decode_qr(img, i)
+        img = Image.frombytes("RGB", (width, height), raw)
+        if not is_green_frame(img):
+            if green_seq_start >= 0:
+                check_green_sequence_has_decode(green_seq_decoded, green_seq_start, frame_idx - 1)
+                green_seq_start = -1
+            if continuation_buffer:
+                continuation_buffer = []
+                continuation_total = 0
+            frame_idx += 1
+            continue
+
+        green_frame_indices.add(frame_idx)
+        if green_seq_start < 0:
+            green_seq_start = frame_idx
+            green_seq_decoded = False
+
+        decoded = decode_qr(img, frame_idx)
+        if decoded is None:
+            frame_idx += 1
+            continue
+
+        green_seq_decoded = True
         payload = _parse_qr_payload(decoded)
 
         if "_c" in payload:
@@ -129,20 +211,27 @@ def detect_sync_frames(video_path: Path, temp_dir: Path) -> SyncDetectionResult:
                 continuation_buffer = []
                 continuation_total = 0
             else:
+                frame_idx += 1
                 continue
 
         sync_type = payload["t"]
         if sync_type not in _SM.all_types:
-            raise RuntimeError(f"Green frame {i} ({i * 0.04:.3f}s) has unknown type: {sync_type}")
+            raise RuntimeError(f"Green frame {frame_idx} ({frame_idx * 0.04:.3f}s) has unknown type: {sync_type}")
 
         if sync_type == _SM.init:
             init_data = payload
             init_seen = True
+            frame_idx += 1
+            continue
+
+        if sync_type == _SM.done:
+            done_seen = True
+            frame_idx += 1
             continue
 
         if not init_seen:
             raise RuntimeError(
-                f"Sync frame at frame {i} ({i * 0.04:.3f}s) appeared before the init frame. "
+                f"Sync frame at frame {frame_idx} ({frame_idx * 0.04:.3f}s) appeared before the init frame. "
                 f"The init frame must be the first sync frame in the video. "
                 f"Make sure Storyboard is initialized before any narration or screen action begins."
             )
@@ -173,11 +262,35 @@ def detect_sync_frames(video_path: Path, temp_dir: Path) -> SyncDetectionResult:
                 screen_action_id=entity_id,
             )
 
-        markers.append(SyncMarker(sync_type, entity_id, marker_type, i))
+        markers.append(SyncMarker(sync_type, entity_id, marker_type, frame_idx))
+        frame_idx += 1
+
+    if green_seq_start >= 0:
+        check_green_sequence_has_decode(green_seq_decoded, green_seq_start, frame_idx - 1)
+
+    pipe.stdout.close()
+    pipe.wait()
+
+    log.info("Sync detection complete: %d frames scanned, %d green frames, %d markers",
+             total_frames, len(green_frame_indices), len(markers))
+
+    if not init_seen:
+        raise RuntimeError(
+            "No init frame found in video. "
+            "Make sure Storyboard is initialized before any recording begins — "
+            "the constructor injects the init frame automatically when a page is provided."
+        )
+
+    if not done_seen:
+        raise RuntimeError(
+            "No done frame found in video. "
+            "Call storyboard.done() after the last narration to ensure the video codec "
+            "captures all sync frames before the browser context is closed."
+        )
 
     spans = group_into_spans(markers)
     return SyncDetectionResult(
-        spans, green_frame_indices, len(frame_paths),
+        spans, green_frame_indices, total_frames,
         narration_texts, narration_translations, screen_actions, init_data,
     )
 

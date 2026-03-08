@@ -15,6 +15,7 @@ class SyncMarkers:
     narration: SyncType
     action: SyncType
     highlight: SyncType
+    done: SyncType
     separator: str
     start: MarkerPosition
     end: MarkerPosition
@@ -42,16 +43,22 @@ class SyncMarkers:
 
     @property
     def all_types(self) -> tuple[SyncType, ...]:
-        return (self.init, self.narration, self.action, self.highlight)
+        return (self.init, self.narration, self.action, self.highlight, self.done)
 
 
 @dataclass(frozen=True)
 class SyncFrameConfig:
     qr_size: int
     display_duration_ms: int
+    done_display_duration_ms: int
     post_removal_gap_ms: int
+    background_color: str
     inject_js: str
     remove_js: str
+
+    @property
+    def resolved_inject_js(self) -> str:
+        return self.inject_js.replace("{{backgroundColor}}", self.background_color)
 
 
 @dataclass(frozen=True)
@@ -126,6 +133,7 @@ def load_shared_config() -> SharedConfig:
             narration=SyncType(sm["narration"]),
             action=SyncType(sm["action"]),
             highlight=SyncType(sm["highlight"]),
+            done=SyncType(sm["done"]),
             separator=sm["separator"],
             start=MarkerPosition(sm["start"]),
             end=MarkerPosition(sm["end"]),
@@ -133,7 +141,9 @@ def load_shared_config() -> SharedConfig:
         sync_frame=SyncFrameConfig(
             qr_size=sf["qrSize"],
             display_duration_ms=sf["displayDurationMs"],
+            done_display_duration_ms=sf["doneDisplayDurationMs"],
             post_removal_gap_ms=sf["postRemovalGapMs"],
+            background_color=sf["backgroundColor"],
             inject_js=_resolve_js(config_dir, sf["injectJs"]),
             remove_js=_resolve_js(config_dir, sf["removeJs"]),
         ),

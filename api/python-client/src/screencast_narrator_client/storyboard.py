@@ -72,6 +72,7 @@ class Storyboard:
         language: str = "en",
         highlight_style: HighlightStyle | None = None,
         sync_frame_style: SyncFrameStyle | None = None,
+        voices: dict[str, dict[str, str]] | None = None,
     ) -> None:
         self._output_dir = output_dir
         self._page = page
@@ -93,6 +94,8 @@ class Storyboard:
         self._pending_narration_id: int = -1
         self._pending_screen_actions: list[ScreenAction] = []
         self._pending_action_id: int | None = None
+        self._pending_voice: str | None = None
+        self._voices = voices
         output_dir.mkdir(parents=True, exist_ok=True)
         self._inject_init_frame()
 
@@ -125,7 +128,7 @@ class Storyboard:
         )
         return self
 
-    def begin_narration(self, text: str | None = None, translations: dict[str, str] | None = None) -> int:
+    def begin_narration(self, text: str | None = None, translations: dict[str, str] | None = None, voice: str | None = None) -> int:
         if self._narration_open:
             raise RuntimeError("Cannot begin a new narration while another is still open")
         nid = self._narration_id_counter
@@ -133,6 +136,7 @@ class Storyboard:
         self._narration_open = True
         self._pending_narration_id = nid
         self._pending_text = text
+        self._pending_voice = voice
         self._pending_translations: dict[str, str] = dict(translations) if translations else {}
         self._pending_screen_actions = []
         if self._page is not None:
@@ -210,11 +214,13 @@ class Storyboard:
         self._narrations.append(Narration(
             narration_id=self._pending_narration_id,
             text=self._pending_text,
+            voice=self._pending_voice,
             screen_actions=list(self._pending_screen_actions) or None,
             translations=dict(self._pending_translations) or None,
         ))
         self._narration_open = False
         self._pending_text = None
+        self._pending_voice = None
         self._pending_narration_id = -1
         self._pending_screen_actions = []
         self._flush()
@@ -224,8 +230,9 @@ class Storyboard:
         callback: Callable[[Storyboard], None],
         text: str | None = None,
         translations: dict[str, str] | None = None,
+        voice: str | None = None,
     ) -> int:
-        nid = self.begin_narration(text, translations)
+        nid = self.begin_narration(text, translations, voice=voice)
         try:
             callback(self)
         finally:
@@ -249,6 +256,12 @@ class Storyboard:
             self.end_screen_action()
         return said
 
+    def done(self) -> None:
+        if self._narration_open:
+            raise RuntimeError("Cannot finalize: a narration bracket is still open")
+        if self._page is not None:
+            self._sync.inject_done_frame(self._page)
+
     @property
     def narrations(self) -> list[Narration]:
         return list(self._narrations)
@@ -262,8 +275,8 @@ class Storyboard:
         options: Options | None = None
         hl = self._highlight_style if self._highlight_style != HighlightStyle() else None
         sf = self._sync_frame_style if self._sync_frame_style != SyncFrameStyle() else None
-        if hl or sf:
-            options = Options(highlight_style=hl, sync_frame_style=sf)
+        if hl or sf or self._voices:
+            options = Options(highlight_style=hl, sync_frame_style=sf, voices=self._voices)
         model = StoryboardModel(
             language=self._language,
             narrations=list(self._narrations),

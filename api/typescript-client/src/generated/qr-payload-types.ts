@@ -8,7 +8,13 @@
 /**
  * QR code payload schema for screencast-narrator sync frames. This defines the API contract between recording clients and the detection pipeline.
  */
-export type QrPayloadSchema = InitPayload | NarrationPayload | ActionPayload | HighlightPayload | ContinuationWrapper;
+export type QrPayloadSchema =
+  | InitPayload
+  | NarrationPayload
+  | ActionPayload
+  | HighlightPayload
+  | DonePayload
+  | ContinuationWrapper;
 /**
  * Marker position within a bracket
  */
@@ -61,6 +67,9 @@ export interface HighlightPayload {
   t: "hlt";
   id: number;
   m: MarkerPosition;
+}
+export interface DonePayload {
+  t: "done";
 }
 export interface ContinuationWrapper {
   /**

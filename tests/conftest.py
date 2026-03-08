@@ -5,6 +5,7 @@ import pytest
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--run-long", action="store_true", default=False, help="Run long-running tests")
+    parser.addoption("--reuse-recording", default=None, help="Path to existing recording dir, skip recording phase")
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

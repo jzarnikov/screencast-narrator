@@ -4,7 +4,8 @@ public enum SyncType {
     INIT("init"),
     NARRATION("nar"),
     ACTION("act"),
-    HIGHLIGHT("hlt");
+    HIGHLIGHT("hlt"),
+    DONE("done");
 
     private final String value;
 

@@ -35,6 +35,7 @@ async function record(outputDir: string, htmlPath: string, color: string, animat
   const button = page.locator("#target");
   await storyboard.highlight(button);
   await storyboard.endNarration();
+  await storyboard.done();
 
   await context.close();
   await browser.close();

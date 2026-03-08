@@ -19,7 +19,9 @@ public final class SyncFrameStyles {
         return new SharedConfig.SyncFrameConfig(
                 config.qrSize(),
                 style.getDisplayDurationMs() != null ? style.getDisplayDurationMs() : config.displayDurationMs(),
+                config.doneDisplayDurationMs(),
                 style.getPostRemovalGapMs() != null ? style.getPostRemovalGapMs() : config.postRemovalGapMs(),
+                config.backgroundColor(),
                 config.injectJs(),
                 config.removeJs()
         );

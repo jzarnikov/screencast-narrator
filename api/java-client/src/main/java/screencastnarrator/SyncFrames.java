@@ -75,6 +75,13 @@ public class SyncFrames {
         injectQrOverlay(page, MAPPER.writeValueAsString(payload));
     }
 
+    public void injectDoneFrame(Page page) throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("t", syncMarkers.done().value());
+        String data = MAPPER.writeValueAsString(payload);
+        injectSingleQr(page, data, "done", syncFrameConfig.doneDisplayDurationMs());
+    }
+
     public void injectHighlightSyncFrame(Page page, int highlightId, MarkerPosition marker) throws Exception {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("t", syncMarkers.highlight().value());
@@ -121,11 +128,15 @@ public class SyncFrames {
     }
 
     private void injectSingleQr(Page page, String data, String label) throws Exception {
+        injectSingleQr(page, data, label, syncFrameConfig.displayDurationMs());
+    }
+
+    private void injectSingleQr(Page page, String data, String label, int displayDurationMs) throws Exception {
         String dataUrl = generateQrDataUrl(data);
         String escaped = label.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"").replace("\n", "\\n");
-        String js = syncFrameConfig.injectJs().replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
+        String js = syncFrameConfig.resolvedInjectJs().replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
         page.evaluate(js);
-        page.waitForTimeout(syncFrameConfig.displayDurationMs());
+        page.waitForTimeout(displayDurationMs);
         page.evaluate(syncFrameConfig.removeJs());
         page.waitForTimeout(syncFrameConfig.postRemovalGapMs());
     }

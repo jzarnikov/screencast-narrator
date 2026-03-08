@@ -39,10 +39,12 @@ public class Storyboard {
     private final List<Map<String, Object>> pendingScreenActions = new ArrayList<>();
     private final List<Map<String, Object>> pendingHighlights = new ArrayList<>();
     private Integer pendingActionId = null;
+    private String pendingVoice = null;
     private HighlightStyle highlightStyle;
     private SyncFrameStyle syncFrameStyle;
+    private Map<String, Map<String, String>> voices;
 
-    public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle) throws Exception {
+    public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle, Map<String, Map<String, String>> voices) throws Exception {
         this.config = SharedConfig.load();
         this.sm = config.syncMarkers();
         this.outputDir = outputDir;
@@ -50,18 +52,23 @@ public class Storyboard {
         this.language = language;
         this.highlightStyle = highlightStyle != null ? highlightStyle : new HighlightStyle();
         this.syncFrameStyle = syncFrameStyle != null ? syncFrameStyle : new SyncFrameStyle();
+        this.voices = voices;
         SharedConfig.SyncFrameConfig overriddenSyncFrameConfig = SyncFrameStyles.applyTo(this.syncFrameStyle, config.syncFrame());
         this.syncFrames = new SyncFrames(config, overriddenSyncFrameConfig);
         Files.createDirectories(outputDir);
         injectInitFrame();
     }
 
+    public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle) throws Exception {
+        this(outputDir, page, language, highlightStyle, syncFrameStyle, null);
+    }
+
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle) throws Exception {
-        this(outputDir, page, language, highlightStyle, null);
+        this(outputDir, page, language, highlightStyle, null, null);
     }
 
     public Storyboard(Path outputDir, Page page, String language) throws Exception {
-        this(outputDir, page, language, null, null);
+        this(outputDir, page, language, null, null, null);
     }
 
     public Storyboard(Path outputDir, Page page) throws Exception {
@@ -106,14 +113,18 @@ public class Storyboard {
     }
 
     public int beginNarration() throws Exception {
-        return beginNarration(null, Map.of());
+        return beginNarration(null, Map.of(), null);
     }
 
     public int beginNarration(String text) throws Exception {
-        return beginNarration(text, Map.of());
+        return beginNarration(text, Map.of(), null);
     }
 
     public int beginNarration(String text, Map<String, String> translations) throws Exception {
+        return beginNarration(text, translations, null);
+    }
+
+    public int beginNarration(String text, Map<String, String> translations, String voice) throws Exception {
         if (narrationOpen) {
             throw new IllegalStateException(
                 "Cannot begin a new narration while another is still open");
@@ -122,6 +133,7 @@ public class Storyboard {
         narrationOpen = true;
         pendingNarrationId = nid;
         pendingText = text;
+        pendingVoice = voice;
         pendingTranslations = new LinkedHashMap<>(translations);
         pendingScreenActions.clear();
         pendingHighlights.clear();
@@ -187,6 +199,14 @@ public class Storyboard {
         pendingHighlights.add(hl);
     }
 
+    public void done() throws Exception {
+        if (narrationOpen) {
+            throw new IllegalStateException("Cannot finalize: a narration bracket is still open");
+        }
+        if (page == null) return;
+        syncFrames.injectDoneFrame(page);
+    }
+
     public void endScreenAction() throws Exception {
         if (pendingActionId == null) {
             throw new IllegalStateException(
@@ -211,6 +231,9 @@ public class Storyboard {
         if (pendingText != null) {
             narration.put("text", pendingText);
         }
+        if (pendingVoice != null) {
+            narration.put("voice", pendingVoice);
+        }
         if (!pendingTranslations.isEmpty()) {
             narration.put("translations", new LinkedHashMap<>(pendingTranslations));
         }
@@ -223,6 +246,7 @@ public class Storyboard {
         narrations.add(narration);
         narrationOpen = false;
         pendingText = null;
+        pendingVoice = null;
         pendingTranslations = new LinkedHashMap<>();
         pendingNarrationId = -1;
         pendingScreenActions.clear();
@@ -231,11 +255,15 @@ public class Storyboard {
     }
 
     public int narrate(String text, Action action) throws Exception {
-        return narrate(text, Map.of(), action);
+        return narrate(text, Map.of(), null, action);
     }
 
     public int narrate(String text, Map<String, String> translations, Action action) throws Exception {
-        int nid = beginNarration(text, translations);
+        return narrate(text, translations, null, action);
+    }
+
+    public int narrate(String text, Map<String, String> translations, String voice, Action action) throws Exception {
+        int nid = beginNarration(text, translations, voice);
         try {
             action.execute(this);
         } finally {
@@ -302,6 +330,7 @@ public class Storyboard {
         if (sfs != null && !sfs.equals(new SyncFrameStyle())) {
             options.put("syncFrameStyle", mapper.convertValue(sfs, Map.class));
         }
+        if (voices != null && !voices.isEmpty()) options.put("voices", voices);
         if (!options.isEmpty()) root.put("options", options);
         String json = mapper
             .writerWithDefaultPrettyPrinter()

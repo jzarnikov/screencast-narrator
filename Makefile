@@ -45,6 +45,7 @@ $(PY_GEN)/__init__.py: $(PY_GEN)/storyboard_types.py $(PY_GEN)/qr_payload_types.
 		'    ScreenAction,' \
 		'    ScreenActionTiming,' \
 		'    ScreenActionType,' \
+		'    SyncFrameStyle,' \
 		')' \
 		'from screencast_narrator_client.generated.qr_payload_types import (' \
 		'    MarkerPosition,' \
@@ -60,6 +61,7 @@ $(PY_GEN)/__init__.py: $(PY_GEN)/storyboard_types.py $(PY_GEN)/qr_payload_types.
 		'    "ScreenActionTiming",' \
 		'    "ScreenActionType",' \
 		'    "StoryboardModel",' \
+		'    "SyncFrameStyle",' \
 		'    "SyncType",' \
 		']' > $@
 

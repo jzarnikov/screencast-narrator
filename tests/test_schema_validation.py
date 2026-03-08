@@ -25,6 +25,7 @@ def test_sync_type_enum_matches_config():
     assert SyncType.nar == _SM.narration
     assert SyncType.act == _SM.action
     assert SyncType.hlt == _SM.highlight
+    assert SyncType.done == _SM.done
 
 
 def test_marker_position_enum_matches_config():

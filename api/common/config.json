@@ -4,6 +4,7 @@
     "narration": "nar",
     "action": "act",
     "highlight": "hlt",
+    "done": "done",
     "separator": "|",
     "start": "start",
     "end": "end"
@@ -11,7 +12,9 @@
   "syncFrame": {
     "qrSize": 400,
     "displayDurationMs": 160,
+    "doneDisplayDurationMs": 500,
     "postRemovalGapMs": 80,
+    "backgroundColor": "#00FF00",
     "injectJs": "js/sync-inject.js",
     "removeJs": "js/sync-remove.js"
   },

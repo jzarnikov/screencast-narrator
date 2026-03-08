@@ -51,6 +51,7 @@ def test_silent_title_followed_by_narration(tmp_path: Path) -> None:
         page.wait_for_selector("p", state="visible")
         storyboard.end_screen_action()
         storyboard.end_narration()
+        storyboard.done()
 
         context.close()
         browser.close()

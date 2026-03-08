@@ -37,6 +37,7 @@ def record(output_dir: Path, html_path: Path, color: str, animation_speed_ms: in
         button = page.locator("#target")
         storyboard.highlight(button)
         storyboard.end_narration()
+        storyboard.done()
 
         context.close()
         browser.close()

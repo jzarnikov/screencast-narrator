@@ -5,9 +5,11 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import math
 
 import qrcode
+from PIL import Image
 
 from screencast_narrator_client.shared_config import (
     MarkerPosition,
@@ -15,6 +17,16 @@ from screencast_narrator_client.shared_config import (
     SyncFrameConfig,
     SyncMarkers,
 )
+
+log = logging.getLogger(__name__)
+
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+    _HAS_PYZBAR = True
+except ImportError:
+    _HAS_PYZBAR = False
+
+_MAX_INJECT_RETRIES = 3
 
 MAX_QR_DATA_LENGTH: int = 2000
 _CONTINUATION_OVERHEAD: int = 30
@@ -78,6 +90,15 @@ class SyncFrameInjector:
             payload["dur"] = duration_ms
         return json.dumps(payload, separators=(",", ":"))
 
+    def format_done_data(self) -> str:
+        return json.dumps({"t": self._sm.done.value}, separators=(",", ":"))
+
+    def inject_done_frame(self, page) -> None:
+        saved_display = self._display_duration_ms
+        self._display_duration_ms = self._sf.done_display_duration_ms
+        self._inject_qr_overlay(page, self.format_done_data())
+        self._display_duration_ms = saved_display
+
     def format_highlight_sync_data(self, screen_action_id: int, marker: MarkerPosition) -> str:
         return json.dumps(
             {"t": self._sm.highlight.value, "id": screen_action_id, "m": marker.value},
@@ -134,11 +155,67 @@ class SyncFrameInjector:
 
     def _inject_single_qr(self, page, data: str, label: str = "") -> None:
         data_url = self.generate_qr_data_url(data)
-        js = self._sf.inject_js.replace("{{dataUrl}}", data_url).replace("{{label}}", _escape_js_string(label))
-        page.evaluate(js)
+        js = self._sf.resolved_inject_js.replace("{{dataUrl}}", data_url).replace("{{label}}", _escape_js_string(label))
+
+        for attempt in range(_MAX_INJECT_RETRIES):
+            page.evaluate(js)
+
+            verified = self._verify_qr_visible(page, data)
+            if verified:
+                break
+
+            log.error(
+                "Sync frame NOT visible after injection (attempt %d/%d, data=%s). Retrying...",
+                attempt + 1, _MAX_INJECT_RETRIES, data[:80],
+            )
+            page.evaluate(self._sf.remove_js)
+            page.wait_for_timeout(100)
+        else:
+            raise RuntimeError(
+                f"Sync frame not visible after {_MAX_INJECT_RETRIES} retries (data={data[:80]}). "
+                f"The overlay could not be rendered on this page."
+            )
+
         page.wait_for_timeout(self._display_duration_ms)
         page.evaluate(self._sf.remove_js)
         page.wait_for_timeout(self._post_removal_gap_ms)
+
+    def _verify_qr_visible(self, page, expected_data: str) -> bool:
+        screenshot_bytes = page.screenshot()
+        img = Image.open(io.BytesIO(screenshot_bytes))
+
+        w, h = img.size
+        margin_x, margin_y = max(1, w // 10), max(1, h // 10)
+        sample_points = [
+            (margin_x, margin_y), (w - 1 - margin_x, margin_y),
+            (margin_x, h - 1 - margin_y), (w - 1 - margin_x, h - 1 - margin_y),
+        ]
+        green_count = 0
+        for sx, sy in sample_points:
+            r, g, b = img.getpixel((sx, sy))[:3]
+            if g > 180 and (g - r) > 80 and (g - b) > 80:
+                green_count += 1
+        if green_count < 3:
+            log.debug("Green check failed: only %d/4 corners are green", green_count)
+            return False
+
+        if not _HAS_PYZBAR:
+            return True
+
+        results = pyzbar_decode(img)
+        if not results:
+            bw = img.convert("L").point(lambda x: 255 if x > 128 else 0)
+            results = pyzbar_decode(bw)
+        if not results:
+            log.debug("QR decode failed on screenshot despite green background")
+            return False
+
+        decoded = results[0].data.decode("utf-8")
+        if decoded != expected_data:
+            log.debug("QR mismatch: expected %s, got %s", expected_data[:50], decoded[:50])
+            return False
+
+        return True
 
     def _inject_qr_overlay(self, page, data: str) -> None:
         frames = split_into_continuation_frames(data)

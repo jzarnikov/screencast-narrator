@@ -59,6 +59,7 @@ public class RecordHighlightTest {
             Locator button = page.locator("#target");
             storyboard.highlight(button);
             storyboard.endNarration();
+            storyboard.done();
 
             context.close();
             browser.close();

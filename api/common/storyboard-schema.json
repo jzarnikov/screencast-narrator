@@ -16,7 +16,15 @@
       "type": "object",
       "properties": {
         "highlightStyle": { "$ref": "#/definitions/highlightStyle" },
-        "syncFrameStyle": { "$ref": "#/definitions/syncFrameStyle" }
+        "syncFrameStyle": { "$ref": "#/definitions/syncFrameStyle" },
+        "voices": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "description": "Named voice identities mapping alias to language-specific TTS voices (e.g. {\"nathaly\": {\"en\": \"bf_alice\", \"de\": \"de_natasha\"}})"
+        }
       },
       "additionalProperties": false
     }
@@ -55,6 +63,7 @@
       "properties": {
         "narrationId": { "type": "integer", "minimum": 0 },
         "text": { "type": "string" },
+        "voice": { "type": "string" },
         "translations": {
           "type": "object",
           "additionalProperties": { "type": "string" },

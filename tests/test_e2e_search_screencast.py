@@ -30,12 +30,14 @@ from __future__ import annotations
 import random
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import sync_playwright
 
 from screencast_narrator.merge import process
+from screencast_narrator_client import Storyboard, SyncFrameStyle
+from wikipedia_search_recording import record_wikipedia_search
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _EXAMPLES_DIR = _PROJECT_ROOT / "examples"
@@ -52,14 +54,24 @@ def _can_run_java() -> bool:
 
 
 def _record_with_python(output_dir: Path) -> None:
-    result = subprocess.run(
-        [sys.executable, str(_EXAMPLES_DIR / "record_wikipedia_search.py"), str(output_dir)],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Python recording failed:\n{result.stdout}\n{result.stderr}")
+    videos_dir = output_dir / "videos"
+    videos_dir.mkdir(parents=True, exist_ok=True)
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        context = browser.new_context(
+            viewport={"width": 1280, "height": 720},
+            record_video_dir=str(videos_dir),
+            record_video_size={"width": 1280, "height": 720},
+        )
+        page = context.new_page()
+        sb = Storyboard(output_dir, page, sync_frame_style=SyncFrameStyle(debug_overlay=True))
+
+        record_wikipedia_search(sb, page)
+        sb.done()
+
+        context.close()
+        browser.close()
 
 
 def _record_with_typescript(output_dir: Path) -> None:

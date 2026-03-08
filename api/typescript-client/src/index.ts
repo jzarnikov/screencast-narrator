@@ -13,6 +13,7 @@ export enum SyncType {
   NARRATION = "nar",
   ACTION = "act",
   HIGHLIGHT = "hlt",
+  DONE = "done",
 }
 
 export enum MarkerPosition {
@@ -25,6 +26,7 @@ interface SyncMarkersConfig {
   narration: SyncType;
   action: SyncType;
   highlight: SyncType;
+  done: SyncType;
   separator: string;
   start: MarkerPosition;
   end: MarkerPosition;
@@ -33,7 +35,9 @@ interface SyncMarkersConfig {
 interface SyncFrameConfig {
   qrSize: number;
   displayDurationMs: number;
+  doneDisplayDurationMs: number;
   postRemovalGapMs: number;
+  backgroundColor: string;
   injectJs: string;
   removeJs: string;
 }
@@ -204,6 +208,7 @@ interface HighlightEntry {
 interface NarrationEntry {
   narrationId: number;
   text?: string;
+  voice?: string;
   translations?: Record<string, string>;
   screenActions?: ScreenActionEntry[];
   highlights?: HighlightEntry[];
@@ -224,17 +229,20 @@ export class Storyboard {
   private pendingNarrationId = -1;
   private pendingScreenActions: ScreenActionEntry[] = [];
   private pendingHighlights: HighlightEntry[] = [];
+  private pendingVoice: string | undefined = undefined;
   private pendingActionId: number | null = null;
   private _highlightStyle: HighlightStyle;
   private _syncFrameStyle: SyncFrameStyle;
+  private _voices: Record<string, Record<string, string>> | undefined;
 
-  constructor(outputDir: string, page?: Page, options?: { language?: string; highlightStyle?: HighlightStyle; syncFrameStyle?: SyncFrameStyle }) {
+  constructor(outputDir: string, page?: Page, options?: { language?: string; highlightStyle?: HighlightStyle; syncFrameStyle?: SyncFrameStyle; voices?: Record<string, Record<string, string>> }) {
     this.config = loadSharedConfig();
     this.outputDir = outputDir;
     this.page = page ?? null;
     this.language = options?.language ?? "en";
     this._highlightStyle = options?.highlightStyle ?? {};
     this._syncFrameStyle = options?.syncFrameStyle ?? {};
+    this._voices = options?.voices;
     mkdirSync(outputDir, { recursive: true });
   }
 
@@ -263,7 +271,7 @@ export class Storyboard {
     await this.injectQrOverlay(formatInitData(this.config.syncMarkers, this.language, debugOverlay, fontSize));
   }
 
-  async beginNarration(text?: string, translations?: Record<string, string>): Promise<number> {
+  async beginNarration(text?: string, translations?: Record<string, string>, voice?: string): Promise<number> {
     if (this.narrationOpen) {
       throw new Error(
         "Cannot begin a new narration while another is still open"
@@ -273,6 +281,7 @@ export class Storyboard {
     this.narrationOpen = true;
     this.pendingNarrationId = nid;
     this.pendingText = text ?? null;
+    this.pendingVoice = voice;
     this.pendingTranslations = translations ? { ...translations } : {};
     this.pendingScreenActions = [];
     this.pendingHighlights = [];
@@ -343,8 +352,8 @@ export class Storyboard {
     this.pendingActionId = null;
   }
 
-  async narrate(callback: (sb: Storyboard) => Promise<void>, text?: string, translations?: Record<string, string>): Promise<number> {
-    const nid = await this.beginNarration(text, translations);
+  async narrate(callback: (sb: Storyboard) => Promise<void>, text?: string, translations?: Record<string, string>, voice?: string): Promise<number> {
+    const nid = await this.beginNarration(text, translations, voice);
     try {
       await callback(this);
     } finally {
@@ -370,6 +379,17 @@ export class Storyboard {
     return said;
   }
 
+  async done(): Promise<void> {
+    if (this.narrationOpen) {
+      throw new Error("Cannot finalize: a narration bracket is still open");
+    }
+    if (!this.page) return;
+    const savedDisplay = this._syncFrameStyle.displayDurationMs;
+    this._syncFrameStyle.displayDurationMs = this.config.syncFrame.doneDisplayDurationMs;
+    await this.injectQrOverlay(JSON.stringify({ t: this.config.syncMarkers.done }));
+    this._syncFrameStyle.displayDurationMs = savedDisplay;
+  }
+
   async endNarration(): Promise<void> {
     if (!this.narrationOpen) {
       throw new Error("Cannot end narration: no narration bracket is open");
@@ -386,6 +406,9 @@ export class Storyboard {
     if (this.pendingText !== null) {
       narration.text = this.pendingText;
     }
+    if (this.pendingVoice !== undefined) {
+      narration.voice = this.pendingVoice;
+    }
     if (Object.keys(this.pendingTranslations).length > 0) {
       narration.translations = { ...this.pendingTranslations };
     }
@@ -398,6 +421,7 @@ export class Storyboard {
     this.narrations.push(narration);
     this.narrationOpen = false;
     this.pendingText = null;
+    this.pendingVoice = undefined;
     this.pendingTranslations = {};
     this.pendingNarrationId = -1;
     this.pendingScreenActions = [];
@@ -413,6 +437,7 @@ export class Storyboard {
     const options: Record<string, unknown> = {};
     if (Object.keys(this._highlightStyle).length > 0) options.highlightStyle = this._highlightStyle;
     if (Object.keys(this._syncFrameStyle).length > 0) options.syncFrameStyle = this._syncFrameStyle;
+    if (this._voices) options.voices = this._voices;
     if (Object.keys(options).length > 0) data.options = options;
     writeFileSync(
       join(this.outputDir, "storyboard.json"),
@@ -484,7 +509,7 @@ export class Storyboard {
       margin: 4,
     });
     const escaped = label.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n");
-    const js = sfConfig.injectJs.replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
+    const js = sfConfig.injectJs.replace("{{backgroundColor}}", sfConfig.backgroundColor).replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
     await this.page.evaluate(js);
     await this.page.waitForTimeout(displayDurationMs);
     await this.page.evaluate(sfConfig.removeJs);

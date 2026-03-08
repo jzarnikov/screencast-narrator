@@ -57,5 +57,18 @@ def _run_ffprobe(media_path: Path) -> str:
     return result.stdout.strip()
 
 
+def probe_dimensions(video_path: Path) -> tuple[int, int]:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height",
+         "-of", "csv=p=0:s=x", str(video_path)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe failed for {video_path}: {result.stderr}")
+    w, h = result.stdout.strip().split("x")
+    return int(w), int(h)
+
+
 def secs(seconds: float) -> str:
     return f"{seconds:.3f}"

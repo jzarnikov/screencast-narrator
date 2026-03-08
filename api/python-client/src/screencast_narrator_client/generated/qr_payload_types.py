@@ -15,6 +15,7 @@ class SyncType(StrEnum):
     nar = 'nar'
     act = 'act'
     hlt = 'hlt'
+    done = 'done'
 
 
 class MarkerPosition(StrEnum):
@@ -90,6 +91,14 @@ class HighlightPayload(BaseModel):
     m: MarkerPosition
 
 
+class DonePayload(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    t: Literal['done']
+
+
 class ContinuationWrapper(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -111,6 +120,7 @@ class Model(
         | NarrationPayload
         | ActionPayload
         | HighlightPayload
+        | DonePayload
         | ContinuationWrapper
     ]
 ):
@@ -119,6 +129,7 @@ class Model(
         | NarrationPayload
         | ActionPayload
         | HighlightPayload
+        | DonePayload
         | ContinuationWrapper
     ) = Field(
         ...,
