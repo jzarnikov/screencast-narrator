@@ -20,3 +20,4 @@ package-lock.json
 package.json
 examples/target/
 *.traineddata
+postprocess/
