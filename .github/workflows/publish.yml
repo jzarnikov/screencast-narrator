@@ -19,7 +19,24 @@ jobs:
           python-version: "3.12"
       - name: Install build tools
         run: pip install build
-      - name: Build package
+      - name: Build client package
+        run: python -m build api/python-client
+      - name: Publish client to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: api/python-client/dist/
+      - name: Wait for client package availability
+        run: |
+          CLIENT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('api/python-client/pyproject.toml','rb'))['project']['version'])")
+          for i in $(seq 1 30); do
+            if pip index versions screencast-narrator-client 2>/dev/null | grep -q "$CLIENT_VERSION"; then
+              echo "Client $CLIENT_VERSION available on PyPI"
+              break
+            fi
+            echo "Waiting for client $CLIENT_VERSION on PyPI... ($i/30)"
+            sleep 10
+          done
+      - name: Build main package
         run: python -m build
-      - name: Publish to PyPI
+      - name: Publish main package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
