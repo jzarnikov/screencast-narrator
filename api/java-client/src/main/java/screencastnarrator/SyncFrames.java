@@ -24,7 +24,11 @@ public class SyncFrames {
     private final SharedConfig.SyncMarkers syncMarkers;
 
     public SyncFrames(SharedConfig config) {
-        this.syncFrameConfig = config.syncFrame();
+        this(config, config.syncFrame());
+    }
+
+    public SyncFrames(SharedConfig config, SharedConfig.SyncFrameConfig syncFrameConfig) {
+        this.syncFrameConfig = syncFrameConfig;
         this.syncMarkers = config.syncMarkers();
     }
 

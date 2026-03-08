@@ -147,14 +147,16 @@ def test_storyboard_default_language_is_english(tmp_path: Path):
 def test_storyboard_options_serialized(tmp_path: Path):
     from screencast_narrator.storyboard import Storyboard
 
-    sb = Storyboard(tmp_path, debug_overlay=True, font_size=48)
+    from screencast_narrator_client.generated.storyboard_types import SyncFrameStyle
+
+    sb = Storyboard(tmp_path, sync_frame_style=SyncFrameStyle(debug_overlay=True, font_size=48))
     sb.begin_narration("Test")
     sb.end_narration()
 
     import json
     data = json.loads((tmp_path / "storyboard.json").read_text())
-    assert data["options"]["debugOverlay"] is True
-    assert data["options"]["fontSize"] == 48
+    assert data["options"]["syncFrameStyle"]["debugOverlay"] is True
+    assert data["options"]["syncFrameStyle"]["fontSize"] == 48
 
 
 def test_storyboard_no_options_when_defaults(tmp_path: Path):

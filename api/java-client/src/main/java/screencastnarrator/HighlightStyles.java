@@ -12,23 +12,29 @@ public final class HighlightStyles {
                 override.getAnimationSpeedMs() != null ? override.getAnimationSpeedMs() : base.getAnimationSpeedMs(),
                 override.getDrawDurationMs() != null ? override.getDrawDurationMs() : base.getDrawDurationMs(),
                 override.getOpacity() != null ? override.getOpacity() : base.getOpacity(),
-                override.getPadding() != null ? override.getPadding() : base.getPadding()
+                override.getPadding() != null ? override.getPadding() : base.getPadding(),
+                override.getScrollWaitMs() != null ? override.getScrollWaitMs() : base.getScrollWaitMs(),
+                override.getRemoveWaitMs() != null ? override.getRemoveWaitMs() : base.getRemoveWaitMs(),
+                override.getLineWidthMin() != null ? override.getLineWidthMin() : base.getLineWidthMin(),
+                override.getLineWidthMax() != null ? override.getLineWidthMax() : base.getLineWidthMax(),
+                override.getSegments() != null ? override.getSegments() : base.getSegments(),
+                override.getCoverage() != null ? override.getCoverage() : base.getCoverage()
         );
     }
 
     public static SharedConfig.HighlightConfig applyTo(HighlightStyle style, SharedConfig.HighlightConfig config) {
         return new SharedConfig.HighlightConfig(
-                config.scrollWaitMs(),
+                style.getScrollWaitMs() != null ? style.getScrollWaitMs() : config.scrollWaitMs(),
                 style.getDrawDurationMs() != null ? style.getDrawDurationMs() : config.drawWaitMs(),
-                config.removeWaitMs(),
+                style.getRemoveWaitMs() != null ? style.getRemoveWaitMs() : config.removeWaitMs(),
                 style.getColor() != null ? style.getColor() : config.color(),
                 style.getPadding() != null ? style.getPadding() : config.padding(),
                 style.getAnimationSpeedMs() != null ? style.getAnimationSpeedMs() : config.animationSpeedMs(),
-                config.lineWidthMin(),
-                config.lineWidthMax(),
+                style.getLineWidthMin() != null ? style.getLineWidthMin() : config.lineWidthMin(),
+                style.getLineWidthMax() != null ? style.getLineWidthMax() : config.lineWidthMax(),
                 style.getOpacity() != null ? style.getOpacity() : config.opacity(),
-                config.segments(),
-                config.coverage(),
+                style.getSegments() != null ? style.getSegments() : config.segments(),
+                style.getCoverage() != null ? style.getCoverage() : config.coverage(),
                 config.scrollJs(),
                 config.scrollWaitJs(),
                 config.drawJs(),

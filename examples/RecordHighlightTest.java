@@ -12,6 +12,7 @@ import com.microsoft.playwright.options.WaitForSelectorState;
 import com.microsoft.playwright.options.WaitUntilState;
 import screencastnarrator.Storyboard;
 import screencastnarrator.generated.HighlightStyle;
+import screencastnarrator.generated.SyncFrameStyle;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,7 +33,9 @@ public class RecordHighlightTest {
         Path videosDir = outputDir.resolve("videos");
         Files.createDirectories(videosDir);
 
-        HighlightStyle style = new HighlightStyle(color, animationSpeedMs, null, null, null);
+        HighlightStyle style = new HighlightStyle();
+        style.setColor(color);
+        style.setAnimationSpeedMs(animationSpeedMs);
 
         try (Playwright pw = Playwright.create()) {
             Browser browser = pw.chromium().launch(
@@ -43,7 +46,9 @@ public class RecordHighlightTest {
                 .setRecordVideoSize(1280, 720));
             Page page = context.newPage();
 
-            Storyboard storyboard = new Storyboard(outputDir, page, "en", true, 24, style);
+            SyncFrameStyle sfStyle = new SyncFrameStyle();
+            sfStyle.setDebugOverlay(true);
+            Storyboard storyboard = new Storyboard(outputDir, page, "en", style, sfStyle);
 
             page.navigate("file://" + htmlPath,
                 new Page.NavigateOptions().setWaitUntil(WaitUntilState.LOAD));

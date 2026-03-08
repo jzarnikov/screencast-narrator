@@ -1,16 +1,21 @@
 """Tests for sync_detect module: green frame detection, QR decode failure behavior."""
 
+from pathlib import Path
+
+import pytest
 from PIL import Image
 
 from screencast_narrator.shared_config import load_shared_config
 from screencast_narrator.sync_detect import (
     SyncMarker,
+    decode_qr,
     group_consecutive_into_ranges,
     group_into_spans,
     is_green_frame,
 )
 
 _SM = load_shared_config().sync_markers
+_RESOURCES = Path(__file__).parent / "resources"
 
 
 def test_pure_green_frame_is_detected():
@@ -114,3 +119,30 @@ def test_group_into_spans_separates_sync_types():
     assert len(spans) == 2
     assert spans[0].sync_type == _SM.narration
     assert spans[1].sync_type == _SM.action
+
+
+def test_raw_green_frame_from_video_is_detected():
+    img = Image.open(_RESOURCES / "raw_green_frame_1.png")
+    assert is_green_frame(img) is True
+
+
+def test_raw_green_frame_2_from_video_is_detected():
+    img = Image.open(_RESOURCES / "raw_green_frame_2.png")
+    assert is_green_frame(img) is True
+
+
+def test_codec_shifted_green_frame_is_detected():
+    img = Image.open(_RESOURCES / "codec_shifted_green_1.png")
+    assert is_green_frame(img) is True
+
+
+def test_codec_shifted_green_frame_2_is_detected():
+    img = Image.open(_RESOURCES / "codec_shifted_green_2.png")
+    assert is_green_frame(img) is True
+
+
+def test_green_frame_with_fake_qr_raises_on_decode():
+    img = Image.open(_RESOURCES / "fake_qr_green.png")
+    assert is_green_frame(img) is True
+    with pytest.raises(RuntimeError, match="QR decode failed"):
+        decode_qr(img, 42)

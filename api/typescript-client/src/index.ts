@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { HighlightStyle } from "./generated/storyboard-types.js";
+import { HighlightStyle, SyncFrameStyle } from "./generated/storyboard-types.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const configPath = resolve(__dir, "../../common/config.json");
@@ -62,7 +62,7 @@ export interface SharedConfig {
   highlight: HighlightConfig;
 }
 
-export { HighlightStyle } from "./generated/storyboard-types.js";
+export { HighlightStyle, SyncFrameStyle } from "./generated/storyboard-types.js";
 
 function mergeHighlightStyles(base: HighlightStyle, override: HighlightStyle): HighlightStyle {
   return {
@@ -71,6 +71,21 @@ function mergeHighlightStyles(base: HighlightStyle, override: HighlightStyle): H
     drawDurationMs: override.drawDurationMs ?? base.drawDurationMs,
     opacity: override.opacity ?? base.opacity,
     padding: override.padding ?? base.padding,
+    scrollWaitMs: override.scrollWaitMs ?? base.scrollWaitMs,
+    removeWaitMs: override.removeWaitMs ?? base.removeWaitMs,
+    lineWidthMin: override.lineWidthMin ?? base.lineWidthMin,
+    lineWidthMax: override.lineWidthMax ?? base.lineWidthMax,
+    segments: override.segments ?? base.segments,
+    coverage: override.coverage ?? base.coverage,
+  };
+}
+
+function mergeSyncFrameStyles(base: SyncFrameStyle, override: SyncFrameStyle): SyncFrameStyle {
+  return {
+    displayDurationMs: override.displayDurationMs ?? base.displayDurationMs,
+    postRemovalGapMs: override.postRemovalGapMs ?? base.postRemovalGapMs,
+    debugOverlay: override.debugOverlay ?? base.debugOverlay,
+    fontSize: override.fontSize ?? base.fontSize,
   };
 }
 
@@ -82,6 +97,12 @@ function applyHighlightStyle(style: HighlightStyle, config: HighlightConfig): Hi
     animationSpeedMs: style.animationSpeedMs ?? config.animationSpeedMs,
     drawWaitMs: style.drawDurationMs ?? config.drawWaitMs,
     opacity: style.opacity ?? config.opacity,
+    scrollWaitMs: style.scrollWaitMs ?? config.scrollWaitMs,
+    removeWaitMs: style.removeWaitMs ?? config.removeWaitMs,
+    lineWidthMin: style.lineWidthMin ?? config.lineWidthMin,
+    lineWidthMax: style.lineWidthMax ?? config.lineWidthMax,
+    segments: style.segments ?? config.segments,
+    coverage: style.coverage ?? config.coverage,
   };
 }
 
@@ -193,8 +214,6 @@ export class Storyboard {
   private readonly outputDir: string;
   private readonly page: Page | null;
   private readonly language: string;
-  private readonly debugOverlay: boolean;
-  private readonly fontSize: number;
   private readonly narrations: NarrationEntry[] = [];
   private narrationIdCounter = 0;
   private screenActionIdCounter = 0;
@@ -207,15 +226,15 @@ export class Storyboard {
   private pendingHighlights: HighlightEntry[] = [];
   private pendingActionId: number | null = null;
   private _highlightStyle: HighlightStyle;
+  private _syncFrameStyle: SyncFrameStyle;
 
-  constructor(outputDir: string, page?: Page, options?: { language?: string; debugOverlay?: boolean; fontSize?: number; highlightStyle?: HighlightStyle }) {
+  constructor(outputDir: string, page?: Page, options?: { language?: string; highlightStyle?: HighlightStyle; syncFrameStyle?: SyncFrameStyle }) {
     this.config = loadSharedConfig();
     this.outputDir = outputDir;
     this.page = page ?? null;
     this.language = options?.language ?? "en";
-    this.debugOverlay = options?.debugOverlay ?? false;
-    this.fontSize = options?.fontSize ?? 24;
     this._highlightStyle = options?.highlightStyle ?? {};
+    this._syncFrameStyle = options?.syncFrameStyle ?? {};
     mkdirSync(outputDir, { recursive: true });
   }
 
@@ -228,9 +247,20 @@ export class Storyboard {
     return this;
   }
 
+  get syncFrameStyle(): SyncFrameStyle {
+    return this._syncFrameStyle;
+  }
+
+  withSyncFrameStyle(style: SyncFrameStyle): this {
+    this._syncFrameStyle = mergeSyncFrameStyles(this._syncFrameStyle, style);
+    return this;
+  }
+
   async init(): Promise<void> {
     if (!this.page) return;
-    await this.injectQrOverlay(formatInitData(this.config.syncMarkers, this.language, this.debugOverlay, this.fontSize));
+    const debugOverlay = this._syncFrameStyle.debugOverlay ?? false;
+    const fontSize = this._syncFrameStyle.fontSize ?? 24;
+    await this.injectQrOverlay(formatInitData(this.config.syncMarkers, this.language, debugOverlay, fontSize));
   }
 
   async beginNarration(text?: string, translations?: Record<string, string>): Promise<number> {
@@ -381,8 +411,8 @@ export class Storyboard {
       narrations: this.narrations,
     };
     const options: Record<string, unknown> = {};
-    if (this.debugOverlay) options.debugOverlay = true;
-    if (this.fontSize !== 24) options.fontSize = this.fontSize;
+    if (Object.keys(this._highlightStyle).length > 0) options.highlightStyle = this._highlightStyle;
+    if (Object.keys(this._syncFrameStyle).length > 0) options.syncFrameStyle = this._syncFrameStyle;
     if (Object.keys(options).length > 0) data.options = options;
     writeFileSync(
       join(this.outputDir, "storyboard.json"),
@@ -447,6 +477,8 @@ export class Storyboard {
   private async injectSingleQr(data: string, label: string = ""): Promise<void> {
     if (!this.page) return;
     const sfConfig = this.config.syncFrame;
+    const displayDurationMs = this._syncFrameStyle.displayDurationMs ?? sfConfig.displayDurationMs;
+    const postRemovalGapMs = this._syncFrameStyle.postRemovalGapMs ?? sfConfig.postRemovalGapMs;
     const dataUrl = await QRCode.toDataURL(data, {
       width: sfConfig.qrSize,
       margin: 4,
@@ -454,8 +486,8 @@ export class Storyboard {
     const escaped = label.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n");
     const js = sfConfig.injectJs.replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
     await this.page.evaluate(js);
-    await this.page.waitForTimeout(sfConfig.displayDurationMs);
+    await this.page.waitForTimeout(displayDurationMs);
     await this.page.evaluate(sfConfig.removeJs);
-    await this.page.waitForTimeout(sfConfig.postRemovalGapMs);
+    await this.page.waitForTimeout(postRemovalGapMs);
   }
 }

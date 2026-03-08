@@ -30,9 +30,8 @@ export interface StoryboardSchema {
   language: string;
   narrations: Narration[];
   options?: {
-    debugOverlay?: boolean;
-    fontSize?: number;
     highlightStyle?: HighlightStyle;
+    syncFrameStyle?: SyncFrameStyle;
   };
 }
 /**
@@ -91,4 +90,40 @@ export interface HighlightStyle {
    * Padding around the element bounding box
    */
   padding?: number;
+  /**
+   * Time to wait after scrolling to the element
+   */
+  scrollWaitMs?: number;
+  /**
+   * Time to wait after removing the highlight
+   */
+  removeWaitMs?: number;
+  /**
+   * Minimum line width for the highlight stroke
+   */
+  lineWidthMin?: number;
+  /**
+   * Maximum line width for the highlight stroke
+   */
+  lineWidthMax?: number;
+  /**
+   * Number of segments in the highlight stroke
+   */
+  segments?: number;
+  /**
+   * Coverage of the highlight stroke around the element
+   */
+  coverage?: number;
+}
+/**
+ * User-customizable sync frame appearance. All fields are optional — unset fields inherit from the shared config defaults.
+ *
+ * This interface was referenced by `StoryboardSchema`'s JSON-Schema
+ * via the `definition` "syncFrameStyle".
+ */
+export interface SyncFrameStyle {
+  displayDurationMs?: number;
+  postRemovalGapMs?: number;
+  debugOverlay?: boolean;
+  fontSize?: number;
 }

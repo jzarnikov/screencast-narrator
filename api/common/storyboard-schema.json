@@ -15,9 +15,8 @@
     "options": {
       "type": "object",
       "properties": {
-        "debugOverlay": { "type": "boolean" },
-        "fontSize": { "type": "integer", "minimum": 1 },
-        "highlightStyle": { "$ref": "#/definitions/highlightStyle" }
+        "highlightStyle": { "$ref": "#/definitions/highlightStyle" },
+        "syncFrameStyle": { "$ref": "#/definitions/syncFrameStyle" }
       },
       "additionalProperties": false
     }
@@ -96,6 +95,63 @@
           "type": "integer",
           "minimum": 0,
           "description": "Padding around the element bounding box"
+        },
+        "scrollWaitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time to wait after scrolling the element into view"
+        },
+        "removeWaitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time to wait after removing the highlight overlay"
+        },
+        "lineWidthMin": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Minimum stroke width of the hand-drawn highlight"
+        },
+        "lineWidthMax": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum stroke width of the hand-drawn highlight"
+        },
+        "segments": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of line segments in the hand-drawn rectangle"
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How much of the rectangle perimeter is drawn (0-1)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "syncFrameStyle": {
+      "type": "object",
+      "description": "User-customizable sync frame timing and overlay settings. All fields are optional — unset fields inherit from the shared config defaults.",
+      "properties": {
+        "displayDurationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How long the green QR overlay is shown per frame (default 160ms = ~4 frames at 25fps)"
+        },
+        "postRemovalGapMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Gap after removing the overlay before the next action (default 80ms)"
+        },
+        "debugOverlay": {
+          "type": "boolean",
+          "description": "Show narration text as subtitle overlay during recording"
+        },
+        "fontSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Font size for the debug subtitle overlay (default 24)"
         }
       },
       "additionalProperties": false

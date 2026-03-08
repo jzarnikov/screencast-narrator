@@ -1,9 +1,11 @@
 """Python client for screencast-narrator: record narrated screencasts from browser automation."""
 
 from screencast_narrator_client.generated import (
+    HighlightStyle,
     MarkerPosition,
     ScreenActionTiming,
     ScreenActionType,
+    SyncFrameStyle,
     SyncType,
 )
 from screencast_narrator_client.highlight import draw_highlight, highlight, remove_highlight
@@ -28,9 +30,11 @@ from screencast_narrator_client.sync_frames import (
 
 __all__ = [
     "HighlightConfig",
+    "HighlightStyle",
     "MarkerPosition",
     "SharedConfig",
     "SyncFrameConfig",
+    "SyncFrameStyle",
     "SyncMarkers",
     "SyncType",
     "load_shared_config",

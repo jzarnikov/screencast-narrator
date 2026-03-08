@@ -13,6 +13,7 @@ import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.microsoft.playwright.options.WaitUntilState;
 import screencastnarrator.Storyboard;
+import screencastnarrator.generated.SyncFrameStyle;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,7 +40,9 @@ public class RecordWikipediaSearch {
                 .setRecordVideoSize(1280, 720));
             Page page = context.newPage();
 
-            Storyboard storyboard = new Storyboard(outputDir, page, "en", true);
+            SyncFrameStyle syncFrameStyle = new SyncFrameStyle();
+            syncFrameStyle.setDebugOverlay(true);
+            Storyboard storyboard = new Storyboard(outputDir, page, "en", null, syncFrameStyle);
 
             // --- Step 1: Navigate to Wikipedia ---
             storyboard.narrate(

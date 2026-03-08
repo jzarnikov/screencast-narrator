@@ -61,7 +61,7 @@ def is_green_frame(img: Image.Image) -> bool:
                 continue
             total += 1
             r, g, b = img.getpixel((sx, sy))[:3]
-            if r < 80 and g > 180 and b < 80:
+            if g > 180 and (g - r) > 80 and (g - b) > 80:
                 green_count += 1
     return green_count >= total * 3 // 4
 

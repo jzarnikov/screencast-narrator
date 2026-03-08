@@ -11,7 +11,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-from screencast_narrator.storyboard import HighlightStyle, Storyboard
+from screencast_narrator_client import HighlightStyle, Storyboard, SyncFrameStyle
 
 
 def record(output_dir: Path, html_path: Path, color: str, animation_speed_ms: int) -> None:
@@ -28,7 +28,7 @@ def record(output_dir: Path, html_path: Path, color: str, animation_speed_ms: in
         )
         page = context.new_page()
 
-        storyboard = Storyboard(output_dir, page, debug_overlay=True, highlight_style=style)
+        storyboard = Storyboard(output_dir, page, highlight_style=style, sync_frame_style=SyncFrameStyle(debug_overlay=True))
 
         page.goto(f"file://{html_path}", wait_until="load")
         page.wait_for_selector("#target", state="visible")

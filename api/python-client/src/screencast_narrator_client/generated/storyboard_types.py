@@ -76,6 +76,59 @@ class HighlightStyle(BaseModel):
     padding: conint(ge=0) | None = Field(
         None, description='Padding around the element bounding box'
     )
+    scroll_wait_ms: conint(ge=0) | None = Field(
+        None,
+        alias='scrollWaitMs',
+        description='Time to wait after scrolling the element into view',
+    )
+    remove_wait_ms: conint(ge=0) | None = Field(
+        None,
+        alias='removeWaitMs',
+        description='Time to wait after removing the highlight overlay',
+    )
+    line_width_min: conint(ge=0) | None = Field(
+        None,
+        alias='lineWidthMin',
+        description='Minimum stroke width of the hand-drawn highlight',
+    )
+    line_width_max: conint(ge=0) | None = Field(
+        None,
+        alias='lineWidthMax',
+        description='Maximum stroke width of the hand-drawn highlight',
+    )
+    segments: conint(ge=1) | None = Field(
+        None, description='Number of line segments in the hand-drawn rectangle'
+    )
+    coverage: confloat(ge=0.0, le=1.0) | None = Field(
+        None, description='How much of the rectangle perimeter is drawn (0-1)'
+    )
+
+
+class SyncFrameStyle(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    display_duration_ms: conint(ge=0) | None = Field(
+        None,
+        alias='displayDurationMs',
+        description='How long the green QR overlay is shown per frame (default 160ms = ~4 frames at 25fps)',
+    )
+    post_removal_gap_ms: conint(ge=0) | None = Field(
+        None,
+        alias='postRemovalGapMs',
+        description='Gap after removing the overlay before the next action (default 80ms)',
+    )
+    debug_overlay: bool | None = Field(
+        None,
+        alias='debugOverlay',
+        description='Show narration text as subtitle overlay during recording',
+    )
+    font_size: conint(ge=1) | None = Field(
+        None,
+        alias='fontSize',
+        description='Font size for the debug subtitle overlay (default 24)',
+    )
 
 
 class Options(BaseModel):
@@ -83,9 +136,8 @@ class Options(BaseModel):
         extra='forbid',
         populate_by_name=True,
     )
-    debug_overlay: bool | None = Field(None, alias='debugOverlay')
-    font_size: conint(ge=1) | None = Field(None, alias='fontSize')
     highlight_style: HighlightStyle | None = Field(None, alias='highlightStyle')
+    sync_frame_style: SyncFrameStyle | None = Field(None, alias='syncFrameStyle')
 
 
 class Model(BaseModel):

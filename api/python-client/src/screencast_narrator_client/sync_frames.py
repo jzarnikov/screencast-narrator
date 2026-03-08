@@ -25,9 +25,16 @@ def _escape_js_string(value: str) -> str:
 
 
 class SyncFrameInjector:
-    def __init__(self, config: SharedConfig) -> None:
+    def __init__(
+        self,
+        config: SharedConfig,
+        display_duration_ms: int | None = None,
+        post_removal_gap_ms: int | None = None,
+    ) -> None:
         self._sf: SyncFrameConfig = config.sync_frame
         self._sm: SyncMarkers = config.sync_markers
+        self._display_duration_ms = display_duration_ms if display_duration_ms is not None else self._sf.display_duration_ms
+        self._post_removal_gap_ms = post_removal_gap_ms if post_removal_gap_ms is not None else self._sf.post_removal_gap_ms
 
     def format_init_data(self, language: str, debug_overlay: bool = False, font_size: int = 24) -> str:
         payload: dict = {"t": self._sm.init.value, "language": language}
@@ -129,9 +136,9 @@ class SyncFrameInjector:
         data_url = self.generate_qr_data_url(data)
         js = self._sf.inject_js.replace("{{dataUrl}}", data_url).replace("{{label}}", _escape_js_string(label))
         page.evaluate(js)
-        page.wait_for_timeout(self._sf.display_duration_ms)
+        page.wait_for_timeout(self._display_duration_ms)
         page.evaluate(self._sf.remove_js)
-        page.wait_for_timeout(self._sf.post_removal_gap_ms)
+        page.wait_for_timeout(self._post_removal_gap_ms)
 
     def _inject_qr_overlay(self, page, data: str) -> None:
         frames = split_into_continuation_frames(data)

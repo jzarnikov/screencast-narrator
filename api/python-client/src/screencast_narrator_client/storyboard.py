@@ -13,6 +13,7 @@ from screencast_narrator_client.generated.storyboard_types import (
     ScreenAction,
     ScreenActionTiming,
     ScreenActionType,
+    SyncFrameStyle,
 )
 from screencast_narrator_client.shared_config import HighlightConfig, SharedConfig, load_shared_config
 from screencast_narrator_client.sync_frames import SyncFrameInjector
@@ -25,26 +26,41 @@ def _merge_highlight_styles(base: HighlightStyle, override: HighlightStyle) -> H
         draw_duration_ms=override.draw_duration_ms if override.draw_duration_ms is not None else base.draw_duration_ms,
         opacity=override.opacity if override.opacity is not None else base.opacity,
         padding=override.padding if override.padding is not None else base.padding,
+        scroll_wait_ms=override.scroll_wait_ms if override.scroll_wait_ms is not None else base.scroll_wait_ms,
+        remove_wait_ms=override.remove_wait_ms if override.remove_wait_ms is not None else base.remove_wait_ms,
+        line_width_min=override.line_width_min if override.line_width_min is not None else base.line_width_min,
+        line_width_max=override.line_width_max if override.line_width_max is not None else base.line_width_max,
+        segments=override.segments if override.segments is not None else base.segments,
+        coverage=override.coverage if override.coverage is not None else base.coverage,
     )
 
 
 def _apply_highlight_style(style: HighlightStyle, config: HighlightConfig) -> HighlightConfig:
     return HighlightConfig(
-        scroll_wait_ms=config.scroll_wait_ms,
+        scroll_wait_ms=style.scroll_wait_ms if style.scroll_wait_ms is not None else config.scroll_wait_ms,
         draw_wait_ms=style.draw_duration_ms if style.draw_duration_ms is not None else config.draw_wait_ms,
-        remove_wait_ms=config.remove_wait_ms,
+        remove_wait_ms=style.remove_wait_ms if style.remove_wait_ms is not None else config.remove_wait_ms,
         color=style.color if style.color is not None else config.color,
         padding=style.padding if style.padding is not None else config.padding,
         animation_speed_ms=style.animation_speed_ms if style.animation_speed_ms is not None else config.animation_speed_ms,
-        line_width_min=config.line_width_min,
-        line_width_max=config.line_width_max,
+        line_width_min=style.line_width_min if style.line_width_min is not None else config.line_width_min,
+        line_width_max=style.line_width_max if style.line_width_max is not None else config.line_width_max,
         opacity=style.opacity if style.opacity is not None else config.opacity,
-        segments=config.segments,
-        coverage=config.coverage,
+        segments=style.segments if style.segments is not None else config.segments,
+        coverage=style.coverage if style.coverage is not None else config.coverage,
         scroll_js=config.scroll_js,
         scroll_wait_js=config.scroll_wait_js,
         draw_js=config.draw_js,
         remove_js=config.remove_js,
+    )
+
+
+def _merge_sync_frame_styles(base: SyncFrameStyle, override: SyncFrameStyle) -> SyncFrameStyle:
+    return SyncFrameStyle(
+        display_duration_ms=override.display_duration_ms if override.display_duration_ms is not None else base.display_duration_ms,
+        post_removal_gap_ms=override.post_removal_gap_ms if override.post_removal_gap_ms is not None else base.post_removal_gap_ms,
+        debug_overlay=override.debug_overlay if override.debug_overlay is not None else base.debug_overlay,
+        font_size=override.font_size if override.font_size is not None else base.font_size,
     )
 
 
@@ -54,19 +70,21 @@ class Storyboard:
         output_dir: Path,
         page=None,
         language: str = "en",
-        debug_overlay: bool = False,
-        font_size: int = 24,
         highlight_style: HighlightStyle | None = None,
+        sync_frame_style: SyncFrameStyle | None = None,
     ) -> None:
         self._output_dir = output_dir
         self._page = page
         self._language = language
-        self._debug_overlay = debug_overlay
-        self._font_size = font_size
         self._config: SharedConfig = load_shared_config()
         self._sm = self._config.sync_markers
-        self._sync = SyncFrameInjector(self._config)
         self._highlight_style = highlight_style or HighlightStyle()
+        self._sync_frame_style = sync_frame_style or SyncFrameStyle()
+        self._sync = SyncFrameInjector(
+            self._config,
+            display_duration_ms=self._sync_frame_style.display_duration_ms,
+            post_removal_gap_ms=self._sync_frame_style.post_removal_gap_ms,
+        )
         self._narrations: list[Narration] = []
         self._narration_id_counter = 0
         self._screen_action_id_counter = 0
@@ -79,11 +97,32 @@ class Storyboard:
         self._inject_init_frame()
 
     @property
+    def _debug_overlay(self) -> bool:
+        return self._sync_frame_style.debug_overlay or False
+
+    @property
+    def _font_size(self) -> int:
+        return self._sync_frame_style.font_size or 24
+
+    @property
     def highlight_style(self) -> HighlightStyle:
         return self._highlight_style
 
     def with_highlight_style(self, style: HighlightStyle) -> Storyboard:
         self._highlight_style = _merge_highlight_styles(self._highlight_style, style)
+        return self
+
+    @property
+    def sync_frame_style(self) -> SyncFrameStyle:
+        return self._sync_frame_style
+
+    def with_sync_frame_style(self, style: SyncFrameStyle) -> Storyboard:
+        self._sync_frame_style = _merge_sync_frame_styles(self._sync_frame_style, style)
+        self._sync = SyncFrameInjector(
+            self._config,
+            display_duration_ms=self._sync_frame_style.display_duration_ms,
+            post_removal_gap_ms=self._sync_frame_style.post_removal_gap_ms,
+        )
         return self
 
     def begin_narration(self, text: str | None = None, translations: dict[str, str] | None = None) -> int:
@@ -221,11 +260,10 @@ class Storyboard:
 
     def _flush(self) -> None:
         options: Options | None = None
-        if self._debug_overlay or self._font_size != 24:
-            options = Options(
-                debug_overlay=self._debug_overlay or None,
-                font_size=self._font_size if self._font_size != 24 else None,
-            )
+        hl = self._highlight_style if self._highlight_style != HighlightStyle() else None
+        sf = self._sync_frame_style if self._sync_frame_style != SyncFrameStyle() else None
+        if hl or sf:
+            options = Options(highlight_style=hl, sync_frame_style=sf)
         model = StoryboardModel(
             language=self._language,
             narrations=list(self._narrations),

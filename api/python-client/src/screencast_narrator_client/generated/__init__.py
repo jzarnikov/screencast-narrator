@@ -8,6 +8,7 @@ from screencast_narrator_client.generated.storyboard_types import (
     ScreenAction,
     ScreenActionTiming,
     ScreenActionType,
+    SyncFrameStyle,
 )
 from screencast_narrator_client.generated.qr_payload_types import (
     MarkerPosition,
@@ -23,5 +24,6 @@ __all__ = [
     "ScreenActionTiming",
     "ScreenActionType",
     "StoryboardModel",
+    "SyncFrameStyle",
     "SyncType",
 ]

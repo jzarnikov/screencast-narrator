@@ -9,17 +9,12 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({
-    "debugOverlay",
-    "fontSize",
-    "highlightStyle"
+    "highlightStyle",
+    "syncFrameStyle"
 })
 @Generated("jsonschema2pojo")
 public class Options {
 
-    @JsonProperty("debugOverlay")
-    private Boolean debugOverlay;
-    @JsonProperty("fontSize")
-    private Integer fontSize;
     /**
      * User-customizable highlight appearance. All fields are optional — unset fields inherit from the shared config defaults.
      * 
@@ -27,6 +22,13 @@ public class Options {
     @JsonProperty("highlightStyle")
     @JsonPropertyDescription("User-customizable highlight appearance. All fields are optional \u2014 unset fields inherit from the shared config defaults.")
     private HighlightStyle highlightStyle;
+    /**
+     * User-customizable sync frame timing and overlay settings. All fields are optional — unset fields inherit from the shared config defaults.
+     * 
+     */
+    @JsonProperty("syncFrameStyle")
+    @JsonPropertyDescription("User-customizable sync frame timing and overlay settings. All fields are optional \u2014 unset fields inherit from the shared config defaults.")
+    private SyncFrameStyle syncFrameStyle;
 
     /**
      * No args constructor for use in serialization
@@ -35,31 +37,10 @@ public class Options {
     public Options() {
     }
 
-    public Options(Boolean debugOverlay, Integer fontSize, HighlightStyle highlightStyle) {
+    public Options(HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle) {
         super();
-        this.debugOverlay = debugOverlay;
-        this.fontSize = fontSize;
         this.highlightStyle = highlightStyle;
-    }
-
-    @JsonProperty("debugOverlay")
-    public Boolean getDebugOverlay() {
-        return debugOverlay;
-    }
-
-    @JsonProperty("debugOverlay")
-    public void setDebugOverlay(Boolean debugOverlay) {
-        this.debugOverlay = debugOverlay;
-    }
-
-    @JsonProperty("fontSize")
-    public Integer getFontSize() {
-        return fontSize;
-    }
-
-    @JsonProperty("fontSize")
-    public void setFontSize(Integer fontSize) {
-        this.fontSize = fontSize;
+        this.syncFrameStyle = syncFrameStyle;
     }
 
     /**
@@ -80,21 +61,35 @@ public class Options {
         this.highlightStyle = highlightStyle;
     }
 
+    /**
+     * User-customizable sync frame timing and overlay settings. All fields are optional — unset fields inherit from the shared config defaults.
+     * 
+     */
+    @JsonProperty("syncFrameStyle")
+    public SyncFrameStyle getSyncFrameStyle() {
+        return syncFrameStyle;
+    }
+
+    /**
+     * User-customizable sync frame timing and overlay settings. All fields are optional — unset fields inherit from the shared config defaults.
+     * 
+     */
+    @JsonProperty("syncFrameStyle")
+    public void setSyncFrameStyle(SyncFrameStyle syncFrameStyle) {
+        this.syncFrameStyle = syncFrameStyle;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(Options.class.getName()).append('@').append(Integer.toHexString(System.identityHashCode(this))).append('[');
-        sb.append("debugOverlay");
-        sb.append('=');
-        sb.append(((this.debugOverlay == null)?"<null>":this.debugOverlay));
-        sb.append(',');
-        sb.append("fontSize");
-        sb.append('=');
-        sb.append(((this.fontSize == null)?"<null>":this.fontSize));
-        sb.append(',');
         sb.append("highlightStyle");
         sb.append('=');
         sb.append(((this.highlightStyle == null)?"<null>":this.highlightStyle));
+        sb.append(',');
+        sb.append("syncFrameStyle");
+        sb.append('=');
+        sb.append(((this.syncFrameStyle == null)?"<null>":this.syncFrameStyle));
         sb.append(',');
         if (sb.charAt((sb.length()- 1)) == ',') {
             sb.setCharAt((sb.length()- 1), ']');
@@ -107,8 +102,7 @@ public class Options {
     @Override
     public int hashCode() {
         int result = 1;
-        result = ((result* 31)+((this.debugOverlay == null)? 0 :this.debugOverlay.hashCode()));
-        result = ((result* 31)+((this.fontSize == null)? 0 :this.fontSize.hashCode()));
+        result = ((result* 31)+((this.syncFrameStyle == null)? 0 :this.syncFrameStyle.hashCode()));
         result = ((result* 31)+((this.highlightStyle == null)? 0 :this.highlightStyle.hashCode()));
         return result;
     }
@@ -122,7 +116,7 @@ public class Options {
             return false;
         }
         Options rhs = ((Options) other);
-        return ((((this.debugOverlay == rhs.debugOverlay)||((this.debugOverlay!= null)&&this.debugOverlay.equals(rhs.debugOverlay)))&&((this.fontSize == rhs.fontSize)||((this.fontSize!= null)&&this.fontSize.equals(rhs.fontSize))))&&((this.highlightStyle == rhs.highlightStyle)||((this.highlightStyle!= null)&&this.highlightStyle.equals(rhs.highlightStyle))));
+        return (((this.syncFrameStyle == rhs.syncFrameStyle)||((this.syncFrameStyle!= null)&&this.syncFrameStyle.equals(rhs.syncFrameStyle)))&&((this.highlightStyle == rhs.highlightStyle)||((this.highlightStyle!= null)&&this.highlightStyle.equals(rhs.highlightStyle))));
     }
 
 }

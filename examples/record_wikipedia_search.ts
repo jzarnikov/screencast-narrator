@@ -28,7 +28,7 @@ async function record(outputDir: string): Promise<void> {
   });
   const page = await context.newPage();
 
-  const storyboard = new Storyboard(outputDir, page, { debugOverlay: true });
+  const storyboard = new Storyboard(outputDir, page, { syncFrameStyle: { debugOverlay: true } });
   await storyboard.init();
 
   // --- Step 1: Navigate to Wikipedia ---

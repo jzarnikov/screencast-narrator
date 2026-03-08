@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import screencastnarrator.generated.HighlightStyle;
+import screencastnarrator.generated.SyncFrameStyle;
 
 public class Storyboard {
 
@@ -27,8 +28,6 @@ public class Storyboard {
     private final Path outputDir;
     private final Page page;
     private final String language;
-    private final boolean debugOverlay;
-    private final int fontSize;
     private final List<Map<String, Object>> narrations = new ArrayList<>();
     private int narrationIdCounter = 0;
     private int screenActionIdCounter = 0;
@@ -41,31 +40,28 @@ public class Storyboard {
     private final List<Map<String, Object>> pendingHighlights = new ArrayList<>();
     private Integer pendingActionId = null;
     private HighlightStyle highlightStyle;
+    private SyncFrameStyle syncFrameStyle;
 
-    public Storyboard(Path outputDir, Page page, String language, boolean debugOverlay, int fontSize, HighlightStyle highlightStyle) throws Exception {
+    public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle, SyncFrameStyle syncFrameStyle) throws Exception {
         this.config = SharedConfig.load();
         this.sm = config.syncMarkers();
-        this.syncFrames = new SyncFrames(config);
         this.outputDir = outputDir;
         this.page = page;
         this.language = language;
-        this.debugOverlay = debugOverlay;
-        this.fontSize = fontSize;
         this.highlightStyle = highlightStyle != null ? highlightStyle : new HighlightStyle();
+        this.syncFrameStyle = syncFrameStyle != null ? syncFrameStyle : new SyncFrameStyle();
+        SharedConfig.SyncFrameConfig overriddenSyncFrameConfig = SyncFrameStyles.applyTo(this.syncFrameStyle, config.syncFrame());
+        this.syncFrames = new SyncFrames(config, overriddenSyncFrameConfig);
         Files.createDirectories(outputDir);
         injectInitFrame();
     }
 
-    public Storyboard(Path outputDir, Page page, String language, boolean debugOverlay, int fontSize) throws Exception {
-        this(outputDir, page, language, debugOverlay, fontSize, null);
-    }
-
-    public Storyboard(Path outputDir, Page page, String language, boolean debugOverlay) throws Exception {
-        this(outputDir, page, language, debugOverlay, 24);
+    public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle) throws Exception {
+        this(outputDir, page, language, highlightStyle, null);
     }
 
     public Storyboard(Path outputDir, Page page, String language) throws Exception {
-        this(outputDir, page, language, false, 24);
+        this(outputDir, page, language, null, null);
     }
 
     public Storyboard(Path outputDir, Page page) throws Exception {
@@ -80,14 +76,33 @@ public class Storyboard {
         return highlightStyle;
     }
 
+    public SyncFrameStyle getSyncFrameStyle() {
+        return syncFrameStyle;
+    }
+
     public Storyboard withHighlightStyle(HighlightStyle style) {
         this.highlightStyle = HighlightStyles.merge(this.highlightStyle, style);
         return this;
     }
 
+    public Storyboard withSyncFrameStyle(SyncFrameStyle style) {
+        this.syncFrameStyle = SyncFrameStyles.merge(this.syncFrameStyle, style);
+        return this;
+    }
+
+    private boolean isDebugOverlay() {
+        Boolean val = syncFrameStyle.getDebugOverlay();
+        return val != null && val;
+    }
+
+    private int getFontSize() {
+        Integer val = syncFrameStyle.getFontSize();
+        return val != null ? val : 24;
+    }
+
     private void injectInitFrame() throws Exception {
         if (page == null) return;
-        syncFrames.injectInitFrame(page, language, debugOverlay, fontSize);
+        syncFrames.injectInitFrame(page, language, isDebugOverlay(), getFontSize());
     }
 
     public int beginNarration() throws Exception {
@@ -274,14 +289,21 @@ public class Storyboard {
     }
 
     private void flush() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("language", language);
         root.put("narrations", narrations);
         Map<String, Object> options = new LinkedHashMap<>();
-        if (debugOverlay) options.put("debugOverlay", true);
-        if (fontSize != 24) options.put("fontSize", fontSize);
+        HighlightStyle hs = highlightStyle;
+        if (hs != null && !hs.equals(new HighlightStyle())) {
+            options.put("highlightStyle", mapper.convertValue(hs, Map.class));
+        }
+        SyncFrameStyle sfs = syncFrameStyle;
+        if (sfs != null && !sfs.equals(new SyncFrameStyle())) {
+            options.put("syncFrameStyle", mapper.convertValue(sfs, Map.class));
+        }
         if (!options.isEmpty()) root.put("options", options);
-        String json = new ObjectMapper()
+        String json = mapper
             .writerWithDefaultPrettyPrinter()
             .writeValueAsString(root);
         Files.writeString(outputDir.resolve("storyboard.json"), json);

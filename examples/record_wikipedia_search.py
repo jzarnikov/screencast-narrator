@@ -14,7 +14,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-from screencast_narrator.storyboard import Storyboard
+from screencast_narrator_client import Storyboard, SyncFrameStyle
 
 
 def record(output_dir: Path) -> None:
@@ -30,7 +30,7 @@ def record(output_dir: Path) -> None:
         )
         page = context.new_page()
 
-        storyboard = Storyboard(output_dir, page, debug_overlay=True)
+        storyboard = Storyboard(output_dir, page, sync_frame_style=SyncFrameStyle(debug_overlay=True))
 
         # --- Step 1: Navigate to Wikipedia ---
         def navigate(sb: Storyboard) -> None:
