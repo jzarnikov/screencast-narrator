@@ -24,4 +24,4 @@ jobs:
           pip install -e api/python-client
           pip install -e ".[dev]"
       - name: Run tests
-        run: pytest --ignore=tests/test_e2e_search_screencast.py
+        run: pytest -m "not e2e and not long"
