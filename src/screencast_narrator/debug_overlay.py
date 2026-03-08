@@ -50,22 +50,24 @@ class OverlayResult:
     qr_video: Path
 
 
-def generate_qr_timestamp_video(duration_s: float, temp_dir: Path, qr_size: int = 100) -> Path:
+def generate_qr_timestamp_video(duration_s: float, temp_dir: Path, qr_size: int = 100, fps: int = 25) -> Path:
     qr_dir = temp_dir / "qr_timestamps"
     qr_dir.mkdir(exist_ok=True)
-    num_frames = int(duration_s) + 2
+    frame_duration_ms = 1000 / fps
+    num_frames = int(duration_s * fps) + fps
     for i in range(num_frames):
+        ms = int(i * frame_duration_ms)
         qr = qrcode.QRCode(box_size=4, border=1)
-        qr.add_data(str(i))
+        qr.add_data(str(ms))
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
         img = img.resize((qr_size, qr_size), Image.NEAREST)
-        img.save(qr_dir / f"qr_{i:04d}.png")
+        img.save(qr_dir / f"qr_{i:06d}.png")
 
     qr_video = temp_dir / "qr_timestamps.mp4"
     exec_ffmpeg(
-        "-y", "-framerate", "1",
-        "-i", str(qr_dir / "qr_%04d.png"),
+        "-y", "-framerate", str(fps),
+        "-i", str(qr_dir / "qr_%06d.png"),
         "-c:v", "libx264", "-pix_fmt", "yuv420p",
         "-t", secs(duration_s),
         str(qr_video),

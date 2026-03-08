@@ -57,3 +57,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "e2e: end-to-end tests requiring Playwright and ffmpeg",
+    "long: long-running tests (30+ min), skipped unless --run-long is passed",
+]

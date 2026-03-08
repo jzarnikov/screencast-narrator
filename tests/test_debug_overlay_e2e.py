@@ -29,7 +29,7 @@ def _extract_frame(video: Path, time_s: float, output: Path) -> None:
     )
 
 
-def _decode_qr_timestamp(frame_path: Path) -> int | None:
+def _decode_qr_timestamp_ms(frame_path: Path) -> int | None:
     img = Image.open(frame_path)
     w, h = img.size
     qr_crop = img.crop((w - 120, h - 120, w, h))
@@ -68,14 +68,17 @@ def test_overlay_qr_timestamps_match_video_time(tmp_path: Path) -> None:
     frames_dir.mkdir()
 
     sample_times = [2.0, 5.0, 8.0, 12.0, 16.0]
+    tolerance_ms = 80
 
     for t in sample_times:
         frame_path = frames_dir / f"frame_{t:.1f}.png"
         _extract_frame(mp4, t, frame_path)
-        decoded_second = _decode_qr_timestamp(frame_path)
+        decoded_ms = _decode_qr_timestamp_ms(frame_path)
 
-        assert decoded_second is not None, f"QR code not decoded from frame at t={t}s"
-        assert abs(decoded_second - t) < 1.5, (
-            f"Timestamp mismatch at t={t}s: QR shows {decoded_second}s, "
-            f"diff={abs(decoded_second - t):.1f}s > 1.5s tolerance"
+        assert decoded_ms is not None, f"QR code not decoded from frame at t={t}s"
+        expected_ms = int(t * 1000)
+        diff_ms = abs(decoded_ms - expected_ms)
+        assert diff_ms < tolerance_ms, (
+            f"Timestamp mismatch at t={t}s: QR shows {decoded_ms}ms, "
+            f"expected {expected_ms}ms, diff={diff_ms}ms > {tolerance_ms}ms tolerance"
         )
