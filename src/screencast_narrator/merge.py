@@ -169,6 +169,12 @@ def _generate_tts_audio(texts: list[str], audio_dir: Path, tts_backend: TTSBacke
             tts_backend.generate(text, wav_file)
 
 
+class IncompleteSyncError(RuntimeError):
+    def __init__(self, message: str, narrations: list[NarrationSegment]):
+        super().__init__(message)
+        self.narrations = narrations
+
+
 def _build_narrations_from_sync(
     narration_texts: list[str],
     audio_durations: list[int],
@@ -179,9 +185,13 @@ def _build_narrations_from_sync(
         start_key = _SM.narration_start(i)
         end_key = _SM.narration_end(i)
         if start_key not in sync_positions:
-            raise RuntimeError(f"Missing START sync frame for narration {i}")
+            raise IncompleteSyncError(
+                f"Missing START sync frame for narration {i}", narrations
+            )
         if end_key not in sync_positions:
-            raise RuntimeError(f"Missing END sync frame for narration {i}")
+            raise IncompleteSyncError(
+                f"Missing END sync frame for narration {i}", narrations
+            )
         start_ms = int(sync_positions[start_key] * 1000)
         end_ms = int(sync_positions[end_key] * 1000)
         narrations.append(NarrationSegment(start_ms, end_ms, text, audio_durations[i]))
@@ -231,7 +241,16 @@ def _run_sync_frame_pipeline(
     stripped_video = strip_sync_frames(raw_video_file, green_frame_indices, temp_dir)
     stripped_duration_ms = probe_duration_ms(stripped_video)
 
-    narrations = _build_narrations_from_sync(narration_texts, audio_durations, sync_positions)
+    try:
+        narrations = _build_narrations_from_sync(narration_texts, audio_durations, sync_positions)
+    except IncompleteSyncError as exc:
+        target_dir = output_file.parent
+        _write_partial_diagnostics(
+            storyboard, exc.narrations, sync_positions, target_dir
+        )
+        generate_timeline_html(target_dir)
+        raise
+
     highlights = _build_highlights(storyboard, sync_positions)
 
     result = FreezeFrameCalculator(narrations, highlights, stripped_duration_ms).calculate()
@@ -653,6 +672,37 @@ def _overlay_audio(
     output_duration_ms = max(video_duration_ms, max_audio_end_ms)
     cmd.extend(["-t", secs(output_duration_ms / 1000.0), str(output_file)])
     exec_ffmpeg(*cmd)
+
+
+def _write_partial_diagnostics(
+    storyboard: StoryboardModel,
+    narrations: list[NarrationSegment],
+    sync_positions: dict[str, float],
+    target_dir: Path,
+) -> None:
+    timestamps = [n.start_ms for n in narrations]
+    _write_timeline(storyboard, narrations, timestamps, [], [], target_dir)
+
+    storyboard_data = {
+        "language": storyboard.language,
+        "narrations": [
+            {
+                "narrationId": n.narration_id,
+                "text": n.text,
+                **({"translations": n.translations} if n.translations else {}),
+                **({"screenActions": [_screen_action_to_json(a) for a in n.screen_actions]} if n.screen_actions else {}),
+            }
+            for n in storyboard.narrations
+        ],
+    }
+    (target_dir / "storyboard.json").write_text(
+        json.dumps(storyboard_data, indent=2), encoding="utf-8"
+    )
+
+    sorted_positions = dict(sorted(sync_positions.items(), key=lambda kv: kv[1]))
+    (target_dir / "sync_positions.json").write_text(
+        json.dumps(sorted_positions, indent=2), encoding="utf-8"
+    )
 
 
 def _write_gap_cuts_json(gap_cuts: list[GapCut], target_dir: Path) -> None:

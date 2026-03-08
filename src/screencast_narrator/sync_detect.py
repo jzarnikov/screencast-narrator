@@ -69,6 +69,9 @@ def is_green_frame(img: Image.Image) -> bool:
 def decode_qr(img: Image.Image, frame_index: int) -> str:
     results = pyzbar_decode(img)
     if not results:
+        bw = img.convert("L").point(lambda x: 255 if x > 128 else 0)
+        results = pyzbar_decode(bw)
+    if not results:
         raise RuntimeError(
             f"QR decode failed on green frame {frame_index} ({frame_index * 0.04:.3f}s). "
             f"Every green frame MUST contain a readable QR code."

@@ -20,6 +20,10 @@ MAX_QR_DATA_LENGTH: int = 2000
 _CONTINUATION_OVERHEAD: int = 30
 
 
+def _escape_js_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", "\\n")
+
+
 class SyncFrameInjector:
     def __init__(self, config: SharedConfig) -> None:
         self._sf: SyncFrameConfig = config.sync_frame
@@ -121,17 +125,19 @@ class SyncFrameInjector:
     def inject_highlight_sync_frame(self, page, screen_action_id: int, marker: MarkerPosition) -> None:
         self._inject_qr_overlay(page, self.format_highlight_sync_data(screen_action_id, marker))
 
-    def _inject_single_qr(self, page, data: str) -> None:
+    def _inject_single_qr(self, page, data: str, label: str = "") -> None:
         data_url = self.generate_qr_data_url(data)
-        page.evaluate(self._sf.inject_js.replace("{{dataUrl}}", data_url))
+        js = self._sf.inject_js.replace("{{dataUrl}}", data_url).replace("{{label}}", _escape_js_string(label))
+        page.evaluate(js)
         page.wait_for_timeout(self._sf.display_duration_ms)
         page.evaluate(self._sf.remove_js)
         page.wait_for_timeout(self._sf.post_removal_gap_ms)
 
     def _inject_qr_overlay(self, page, data: str) -> None:
         frames = split_into_continuation_frames(data)
-        for frame in frames:
-            self._inject_single_qr(page, frame)
+        for i, frame in enumerate(frames):
+            label = data if i == 0 else f"(cont {i + 1}/{len(frames)})"
+            self._inject_single_qr(page, frame, label)
 
 
 def split_into_continuation_frames(data: str) -> list[str]:

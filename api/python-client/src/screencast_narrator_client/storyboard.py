@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from screencast_narrator_client.generated.storyboard_types import (
@@ -178,6 +179,36 @@ class Storyboard:
         self._pending_narration_id = -1
         self._pending_screen_actions = []
         self._flush()
+
+    def narrate(
+        self,
+        callback: Callable[[Storyboard], None],
+        text: str | None = None,
+        translations: dict[str, str] | None = None,
+    ) -> int:
+        nid = self.begin_narration(text, translations)
+        try:
+            callback(self)
+        finally:
+            if self._pending_action_id is not None:
+                self.end_screen_action()
+            self.end_narration()
+        return nid
+
+    def screen_action(
+        self,
+        callback: Callable[[Storyboard], None],
+        type: ScreenActionType = ScreenActionType.navigate,
+        description: str | None = None,
+        timing: ScreenActionTiming = ScreenActionTiming.casted,
+        duration_ms: int | None = None,
+    ) -> int:
+        said = self.begin_screen_action(type=type, description=description, timing=timing, duration_ms=duration_ms)
+        try:
+            callback(self)
+        finally:
+            self.end_screen_action()
+        return said
 
     @property
     def narrations(self) -> list[Narration]:

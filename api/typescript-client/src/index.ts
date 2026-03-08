@@ -313,6 +313,33 @@ export class Storyboard {
     this.pendingActionId = null;
   }
 
+  async narrate(callback: (sb: Storyboard) => Promise<void>, text?: string, translations?: Record<string, string>): Promise<number> {
+    const nid = await this.beginNarration(text, translations);
+    try {
+      await callback(this);
+    } finally {
+      if (this.pendingActionId !== null) {
+        await this.endScreenAction();
+      }
+      await this.endNarration();
+    }
+    return nid;
+  }
+
+  async screenAction(callback: (sb: Storyboard) => Promise<void>, options?: {
+    description?: string;
+    timing?: ScreenActionTiming;
+    durationMs?: number;
+  }): Promise<number> {
+    const said = await this.beginScreenAction(options);
+    try {
+      await callback(this);
+    } finally {
+      await this.endScreenAction();
+    }
+    return said;
+  }
+
   async endNarration(): Promise<void> {
     if (!this.narrationOpen) {
       throw new Error("Cannot end narration: no narration bracket is open");
@@ -411,19 +438,21 @@ export class Storyboard {
   private async injectQrOverlay(data: string): Promise<void> {
     if (!this.page) return;
     const frames = splitIntoContinuationFrames(data);
-    for (const frame of frames) {
-      await this.injectSingleQr(frame);
+    for (let i = 0; i < frames.length; i++) {
+      const label = i === 0 ? data : `(cont ${i + 1}/${frames.length})`;
+      await this.injectSingleQr(frames[i], label);
     }
   }
 
-  private async injectSingleQr(data: string): Promise<void> {
+  private async injectSingleQr(data: string, label: string = ""): Promise<void> {
     if (!this.page) return;
     const sfConfig = this.config.syncFrame;
     const dataUrl = await QRCode.toDataURL(data, {
       width: sfConfig.qrSize,
       margin: 4,
     });
-    const js = sfConfig.injectJs.replace("{{dataUrl}}", dataUrl);
+    const escaped = label.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+    const js = sfConfig.injectJs.replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
     await this.page.evaluate(js);
     await this.page.waitForTimeout(sfConfig.displayDurationMs);
     await this.page.evaluate(sfConfig.removeJs);

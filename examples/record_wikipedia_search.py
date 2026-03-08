@@ -33,30 +33,36 @@ def record(output_dir: Path) -> None:
         storyboard = Storyboard(output_dir, page, debug_overlay=True)
 
         # --- Step 1: Navigate to Wikipedia ---
-        storyboard.begin_narration(
-            "In this screencast, we will search Wikipedia for information "
-            "about restaurants. Let's start by navigating to the homepage."
+        def navigate(sb: Storyboard) -> None:
+            def do_navigate(_sb: Storyboard) -> None:
+                page.goto("https://en.wikipedia.org", wait_until="load")
+                page.wait_for_selector("input[name='search']", state="visible")
+
+            sb.screen_action(do_navigate, description="Navigate to Wikipedia")
+
+        storyboard.narrate(
+            navigate,
+            text="In this screencast, we will search Wikipedia for information "
+            "about restaurants. Let's start by navigating to the homepage.",
         )
-        storyboard.begin_screen_action(description="Navigate to Wikipedia")
-        page.goto("https://en.wikipedia.org", wait_until="load")
-        page.wait_for_selector("input[name='search']", state="visible")
-        storyboard.end_screen_action()
-        storyboard.end_narration()
 
         # --- Step 2: Search for "restaurant" ---
         search_box = page.locator("input[name='search']").first
 
-        storyboard.begin_narration(
-            "We type 'restaurant' into the search box and press Enter to navigate to the article."
+        def search(sb: Storyboard) -> None:
+            def do_search(_sb: Storyboard) -> None:
+                search_box.click()
+                search_box.type("restaurant", delay=50)
+                search_box.press("Enter")
+                page.wait_for_selector("#firstHeading", state="visible")
+                page.wait_for_selector("#mw-content-text h2", state="visible")
+
+            sb.screen_action(do_search, description="Type 'restaurant' and search")
+
+        storyboard.narrate(
+            search,
+            text="We type 'restaurant' into the search box and press Enter to navigate to the article.",
         )
-        storyboard.begin_screen_action(description="Type 'restaurant' and search")
-        search_box.click()
-        search_box.type("restaurant", delay=50)
-        search_box.press("Enter")
-        page.wait_for_selector("#firstHeading", state="visible")
-        page.wait_for_selector("#mw-content-text h2", state="visible")
-        storyboard.end_screen_action()
-        storyboard.end_narration()
 
         # --- Step 3: Read section headings ---
         heading_elements = page.locator("#mw-content-text h2 .mw-headline, #mw-content-text h2").all()
@@ -74,14 +80,17 @@ def record(output_dir: Path) -> None:
             headings = [("No section headings found on the page", None)]
 
         for i, (heading_text, heading_el) in enumerate(headings[:3]):
-            storyboard.begin_narration(f"Section {i + 1} of the article is titled: {heading_text}.")
+            def read_heading(sb: Storyboard, el=heading_el, desc=heading_text) -> None:
+                def do_highlight(_sb: Storyboard) -> None:
+                    if el is not None:
+                        sb.highlight(el)
 
-            storyboard.begin_screen_action(description=f"Read section heading: {heading_text}")
-            if heading_el is not None:
-                storyboard.highlight(heading_el)
-            storyboard.end_screen_action()
+                sb.screen_action(do_highlight, description=f"Read section heading: {desc}")
 
-            storyboard.end_narration()
+            storyboard.narrate(
+                read_heading,
+                text=f"Section {i + 1} of the article is titled: {heading_text}.",
+            )
 
         context.close()
         browser.close()

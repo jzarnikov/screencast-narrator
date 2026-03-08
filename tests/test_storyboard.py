@@ -416,3 +416,115 @@ def test_storyboard_with_highlight_style_preserves_unset(tmp_path: Path) -> None
 
     assert sb.highlight_style.color == "#00ff00"
     assert sb.highlight_style.padding == 20
+
+
+def test_narrate_callback_creates_narration(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+    nid = sb.narrate(lambda s: None, text="Hello world")
+
+    assert nid == 0
+    assert len(sb.narrations) == 1
+    assert sb.narrations[0].text == "Hello world"
+
+
+def test_narrate_callback_with_screen_action(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+
+    def do_actions(s: Storyboard) -> None:
+        s.begin_screen_action(description="Click button")
+        s.end_screen_action()
+
+    sb.narrate(do_actions, text="Do something")
+
+    actions = sb.narrations[0].screen_actions
+    assert len(actions) == 1
+    assert actions[0].description == "Click button"
+
+
+def test_narrate_callback_end_frame_on_exception(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+
+    with pytest.raises(ValueError, match="boom"):
+        sb.narrate(lambda s: (_ for _ in ()).throw(ValueError("boom")), text="Hello")
+
+    assert len(sb.narrations) == 1
+    assert sb.narrations[0].text == "Hello"
+    assert not sb._narration_open
+
+
+def test_narrate_callback_closes_open_screen_action_on_exception(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+
+    def do_actions(s: Storyboard) -> None:
+        s.begin_screen_action(description="Started action")
+        raise RuntimeError("interrupted")
+
+    with pytest.raises(RuntimeError, match="interrupted"):
+        sb.narrate(do_actions, text="Hello")
+
+    assert len(sb.narrations) == 1
+    assert sb.narrations[0].screen_actions is not None
+    assert len(sb.narrations[0].screen_actions) == 1
+    assert sb._pending_action_id is None
+    assert not sb._narration_open
+
+
+def test_screen_action_callback_creates_action(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+    sb.begin_narration("Test")
+    said = sb.screen_action(lambda s: None, description="Click")
+    sb.end_narration()
+
+    assert said == 0
+    actions = sb.narrations[0].screen_actions
+    assert len(actions) == 1
+    assert actions[0].description == "Click"
+
+
+def test_screen_action_callback_end_frame_on_exception(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+    sb.begin_narration("Test")
+
+    with pytest.raises(ValueError, match="boom"):
+        sb.screen_action(lambda s: (_ for _ in ()).throw(ValueError("boom")), description="Click")
+
+    assert sb._pending_action_id is None
+    sb.end_narration()
+    assert len(sb.narrations[0].screen_actions) == 1
+
+
+def test_narrate_callback_json_serialization(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+
+    def do_actions(s: Storyboard) -> None:
+        s.begin_screen_action(description="Open browser")
+        s.end_screen_action()
+
+    sb.narrate(do_actions, text="Navigate to page")
+
+    data = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+    assert len(data["narrations"]) == 1
+    assert data["narrations"][0]["text"] == "Navigate to page"
+    assert len(data["narrations"][0]["screenActions"]) == 1
+
+
+def test_narrate_callback_ids_auto_increment(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+    n0 = sb.narrate(lambda s: None, text="First")
+    n1 = sb.narrate(lambda s: None, text="Second")
+
+    assert (n0, n1) == (0, 1)
+    assert len(sb.narrations) == 2
+
+
+def test_narrate_can_be_used_after_exception(tmp_path: Path) -> None:
+    sb = Storyboard(tmp_path)
+
+    with pytest.raises(ValueError):
+        sb.narrate(lambda s: (_ for _ in ()).throw(ValueError("fail")), text="Failed")
+
+    sb.narrate(lambda s: None, text="Recovered")
+
+    assert len(sb.narrations) == 2
+    assert sb.narrations[0].text == "Failed"
+    assert sb.narrations[1].text == "Recovered"

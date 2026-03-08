@@ -81,8 +81,9 @@ public class SyncFrames {
 
     private void injectQrOverlay(Page page, String data) throws Exception {
         List<String> frames = splitIntoContinuationFrames(data);
-        for (String frame : frames) {
-            injectSingleQr(page, frame);
+        for (int i = 0; i < frames.size(); i++) {
+            String label = i == 0 ? data : String.format("(cont %d/%d)", i + 1, frames.size());
+            injectSingleQr(page, frames.get(i), label);
         }
     }
 
@@ -115,9 +116,10 @@ public class SyncFrames {
         return frames;
     }
 
-    private void injectSingleQr(Page page, String data) throws Exception {
+    private void injectSingleQr(Page page, String data, String label) throws Exception {
         String dataUrl = generateQrDataUrl(data);
-        String js = syncFrameConfig.injectJs().replace("{{dataUrl}}", dataUrl);
+        String escaped = label.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"").replace("\n", "\\n");
+        String js = syncFrameConfig.injectJs().replace("{{dataUrl}}", dataUrl).replace("{{label}}", escaped);
         page.evaluate(js);
         page.waitForTimeout(syncFrameConfig.displayDurationMs());
         page.evaluate(syncFrameConfig.removeJs());

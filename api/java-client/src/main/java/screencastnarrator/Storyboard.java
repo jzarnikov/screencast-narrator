@@ -16,6 +16,11 @@ import screencastnarrator.generated.HighlightStyle;
 
 public class Storyboard {
 
+    @FunctionalInterface
+    public interface Action {
+        void execute(Storyboard storyboard) throws Exception;
+    }
+
     private final SharedConfig config;
     private final SharedConfig.SyncMarkers sm;
     private final SyncFrames syncFrames;
@@ -53,6 +58,10 @@ public class Storyboard {
 
     public Storyboard(Path outputDir, Page page, String language, boolean debugOverlay, int fontSize) throws Exception {
         this(outputDir, page, language, debugOverlay, fontSize, null);
+    }
+
+    public Storyboard(Path outputDir, Page page, String language, boolean debugOverlay) throws Exception {
+        this(outputDir, page, language, debugOverlay, 24);
     }
 
     public Storyboard(Path outputDir, Page page, String language) throws Exception {
@@ -204,6 +213,41 @@ public class Storyboard {
         pendingScreenActions.clear();
         pendingHighlights.clear();
         flush();
+    }
+
+    public int narrate(String text, Action action) throws Exception {
+        return narrate(text, Map.of(), action);
+    }
+
+    public int narrate(String text, Map<String, String> translations, Action action) throws Exception {
+        int nid = beginNarration(text, translations);
+        try {
+            action.execute(this);
+        } finally {
+            if (pendingActionId != null) {
+                endScreenAction();
+            }
+            endNarration();
+        }
+        return nid;
+    }
+
+    public int screenAction(Action action) throws Exception {
+        return screenAction(null, "casted", null, action);
+    }
+
+    public int screenAction(String description, Action action) throws Exception {
+        return screenAction(description, "casted", null, action);
+    }
+
+    public int screenAction(String description, String timing, Integer durationMs, Action action) throws Exception {
+        int said = beginScreenAction(description, timing, durationMs);
+        try {
+            action.execute(this);
+        } finally {
+            endScreenAction();
+        }
+        return said;
     }
 
     private void injectSyncFrame(int narrationId, MarkerPosition marker) throws Exception {

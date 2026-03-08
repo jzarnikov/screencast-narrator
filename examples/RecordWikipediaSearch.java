@@ -42,33 +42,31 @@ public class RecordWikipediaSearch {
             Storyboard storyboard = new Storyboard(outputDir, page, "en", true);
 
             // --- Step 1: Navigate to Wikipedia ---
-            storyboard.beginNarration(
+            storyboard.narrate(
                 "In this screencast, we will search Wikipedia for information "
-                    + "about restaurants. Let's start by navigating to the homepage.");
-            storyboard.beginScreenAction("Navigate to Wikipedia");
-            page.navigate("https://en.wikipedia.org",
-                new Page.NavigateOptions().setWaitUntil(WaitUntilState.LOAD));
-            page.waitForSelector("input[name='search']",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-            storyboard.endScreenAction();
-            storyboard.endNarration();
+                    + "about restaurants. Let's start by navigating to the homepage.",
+                sb -> sb.screenAction("Navigate to Wikipedia", s -> {
+                    page.navigate("https://en.wikipedia.org",
+                        new Page.NavigateOptions().setWaitUntil(WaitUntilState.LOAD));
+                    page.waitForSelector("input[name='search']",
+                        new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
+                }));
 
             // --- Step 2: Search for "restaurant" ---
             Locator searchBox = page.locator("input[name='search']").first();
 
-            storyboard.beginNarration(
+            storyboard.narrate(
                 "We type 'restaurant' into the search box and press Enter "
-                    + "to navigate to the article.");
-            storyboard.beginScreenAction("Type 'restaurant' and search");
-            searchBox.click();
-            searchBox.type("restaurant", new Locator.TypeOptions().setDelay(50));
-            searchBox.press("Enter");
-            page.waitForSelector("#firstHeading",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-            page.waitForSelector("#mw-content-text h2",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-            storyboard.endScreenAction();
-            storyboard.endNarration();
+                    + "to navigate to the article.",
+                sb -> sb.screenAction("Type 'restaurant' and search", s -> {
+                    searchBox.click();
+                    searchBox.type("restaurant", new Locator.TypeOptions().setDelay(50));
+                    searchBox.press("Enter");
+                    page.waitForSelector("#firstHeading",
+                        new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
+                    page.waitForSelector("#mw-content-text h2",
+                        new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
+                }));
 
             // --- Step 3: Read section headings ---
             List<Locator> headingElements = page.locator(
@@ -96,14 +94,11 @@ public class RecordWikipediaSearch {
                 String headingText = headingTexts.get(i);
                 Locator headingEl = headingLocators.get(i);
 
-                storyboard.beginNarration(
-                    "Section " + (i + 1) + " of the article is titled: " + headingText + ".");
-
-                storyboard.beginScreenAction("Read section heading: " + headingText);
-                storyboard.highlight(headingEl);
-                storyboard.endScreenAction();
-
-                storyboard.endNarration();
+                storyboard.narrate(
+                    "Section " + (i + 1) + " of the article is titled: " + headingText + ".",
+                    sb -> sb.screenAction("Read section heading: " + headingText, s -> {
+                        sb.highlight(headingEl);
+                    }));
             }
 
             context.close();

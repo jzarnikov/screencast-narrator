@@ -32,40 +32,48 @@ async function record(outputDir: string): Promise<void> {
   await storyboard.init();
 
   // --- Step 1: Navigate to Wikipedia ---
-  await storyboard.beginNarration(
+  await storyboard.narrate(
+    async (sb) => {
+      await sb.screenAction(
+        async () => {
+          await page.goto("https://en.wikipedia.org", { waitUntil: "load" });
+          await page.waitForSelector("input[name='search']", {
+            state: "visible",
+          });
+        },
+        { description: "Navigate to Wikipedia" }
+      );
+    },
     "In this screencast, we will search Wikipedia for information " +
       "about restaurants. Let's start by navigating to the homepage."
   );
-  await storyboard.beginScreenAction({
-    description: "Navigate to Wikipedia",
-  });
-  await page.goto("https://en.wikipedia.org", { waitUntil: "load" });
-  await page.waitForSelector("input[name='search']", { state: "visible" });
-  await storyboard.endScreenAction();
-  await storyboard.endNarration();
 
   // --- Step 2: Search for "restaurant" ---
   const searchBox = page.locator("input[name='search']").first();
 
-  await storyboard.beginNarration(
+  await storyboard.narrate(
+    async (sb) => {
+      await sb.screenAction(
+        async () => {
+          await searchBox.click();
+          await searchBox.type("restaurant", { delay: 50 });
+          await searchBox.press("Enter");
+          await page.waitForSelector("#firstHeading", { state: "visible" });
+          await page.waitForSelector("#mw-content-text h2", {
+            state: "visible",
+          });
+        },
+        { description: "Type 'restaurant' and search" }
+      );
+    },
     "We type 'restaurant' into the search box and press Enter to navigate to the article."
   );
-  await storyboard.beginScreenAction({
-    description: "Type 'restaurant' and search",
-  });
-  await searchBox.click();
-  await searchBox.type("restaurant", { delay: 50 });
-  await searchBox.press("Enter");
-  await page.waitForSelector("#firstHeading", { state: "visible" });
-  await page.waitForSelector("#mw-content-text h2", { state: "visible" });
-  await storyboard.endScreenAction();
-  await storyboard.endNarration();
 
   // --- Step 3: Read section headings ---
   const headingElements = await page
     .locator("#mw-content-text h2 .mw-headline, #mw-content-text h2")
     .all();
-  const headings: { text: string; el: typeof headingElements[0] }[] = [];
+  const headings: { text: string; el: (typeof headingElements)[0] }[] = [];
   const skipHeadings = new Set([
     "See also",
     "References",
@@ -87,25 +95,25 @@ async function record(outputDir: string): Promise<void> {
   }
 
   if (headings.length === 0) {
-    await storyboard.beginNarration(
+    await storyboard.narrate(
+      async () => {},
       "No section headings were found on the page."
     );
-    await storyboard.endNarration();
   }
 
   for (let i = 0; i < Math.min(headings.length, 3); i++) {
     const { text: headingText, el: headingEl } = headings[i];
-    await storyboard.beginNarration(
+    await storyboard.narrate(
+      async (sb) => {
+        await sb.screenAction(
+          async () => {
+            await sb.highlight(headingEl);
+          },
+          { description: `Read section heading: ${headingText}` }
+        );
+      },
       `Section ${i + 1} of the article is titled: ${headingText}.`
     );
-
-    await storyboard.beginScreenAction({
-      description: `Read section heading: ${headingText}`,
-    });
-    await storyboard.highlight(headingEl);
-    await storyboard.endScreenAction();
-
-    await storyboard.endNarration();
   }
 
   await context.close();
