@@ -5,7 +5,7 @@
                              http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.mmarinschek.screencast-narrator</groupId>
+    <groupId>com.github.mmarinschek.screencast-narrator</groupId>
     <artifactId>java-client</artifactId>
     <version>0.3.2</version>
 
@@ -61,15 +61,7 @@
         </dependency>
     </dependencies>
 
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/mmarinschek/screencast-narrator</url>
-        </repository>
-    </distributionManagement>
-
-    <build>
+<build>
         <plugins>
             <plugin>
                 <groupId>org.jsonschema2pojo</groupId>
