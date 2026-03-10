@@ -17,7 +17,9 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from pyzbar.pyzbar import decode as decode_qr
+
+pyzbar = pytest.importorskip("pyzbar.pyzbar")
+decode_qr = pyzbar.decode
 
 from screencast_narrator.merge import process
 from screencast_narrator_client import Storyboard
