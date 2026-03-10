@@ -59,3 +59,28 @@ jobs:
         run: python -m build
       - name: Publish main package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  jitpack:
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger JitPack build
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          echo "Triggering JitPack build for $VERSION..."
+          curl -s "https://jitpack.io/com/github/mmarinschek/screencast-narrator/$VERSION/screencast-narrator-$VERSION.pom" > /dev/null || true
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s "https://jitpack.io/api/builds/com.github.mmarinschek/screencast-narrator/$VERSION" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))")
+            if [ "$STATUS" = "ok" ]; then
+              echo "JitPack build succeeded for $VERSION"
+              exit 0
+            elif [ "$STATUS" = "Error" ]; then
+              echo "JitPack build FAILED for $VERSION"
+              echo "Check https://jitpack.io/#mmarinschek/screencast-narrator/$VERSION"
+              exit 1
+            fi
+            echo "Waiting for JitPack build... ($i/60)"
+            sleep 5
+          done
+          echo "JitPack build timed out"
+          exit 1

@@ -2,7 +2,7 @@ COMMON := api/common
 PY_GEN := api/python-client/src/screencast_narrator_client/generated
 TS_GEN := api/typescript-client/src/generated
 
-.PHONY: generate generate-python generate-typescript generate-java test test-clients test-typescript test-java
+.PHONY: generate generate-python generate-typescript generate-java test test-clients test-typescript test-java release
 
 generate: generate-python generate-typescript
 	@echo "Done."
@@ -88,3 +88,25 @@ test-typescript:
 
 test-java:
 	cd api/java-client && mvn test -q
+
+build-java:
+	cd api/java-client && mvn package -q -DskipTests
+
+trigger-jitpack:
+	@VERSION=$$(git describe --tags --abbrev=0 2>/dev/null) && \
+	echo "Triggering JitPack build for $$VERSION..." && \
+	curl -s "https://jitpack.io/com/github/mmarinschek/screencast-narrator/$$VERSION/screencast-narrator-$$VERSION.pom" > /dev/null && \
+	echo "Waiting for JitPack build..." && \
+	for i in $$(seq 1 60); do \
+		STATUS=$$(curl -s "https://jitpack.io/api/builds/com.github.mmarinschek/screencast-narrator/$$VERSION" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))"); \
+		if [ "$$STATUS" = "ok" ]; then \
+			echo "JitPack build succeeded for $$VERSION"; \
+			exit 0; \
+		elif [ "$$STATUS" = "Error" ]; then \
+			echo "JitPack build FAILED for $$VERSION"; \
+			echo "Check https://jitpack.io/#mmarinschek/screencast-narrator/$$VERSION"; \
+			exit 1; \
+		fi; \
+		sleep 5; \
+	done; \
+	echo "JitPack build timed out"; exit 1
