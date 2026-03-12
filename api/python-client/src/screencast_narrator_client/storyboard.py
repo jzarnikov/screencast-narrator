@@ -20,21 +20,15 @@ from screencast_narrator_client.shared_config import SharedConfig, load_shared_c
 
 log = logging.getLogger(__name__)
 
+DEFAULT_FONT_SIZE = 24
+
 
 def _merge_highlight_styles(base: HighlightStyle, override: HighlightStyle) -> HighlightStyle:
-    return HighlightStyle(
-        color=override.color if override.color is not None else base.color,
-        animation_speed_ms=override.animation_speed_ms if override.animation_speed_ms is not None else base.animation_speed_ms,
-        draw_duration_ms=override.draw_duration_ms if override.draw_duration_ms is not None else base.draw_duration_ms,
-        opacity=override.opacity if override.opacity is not None else base.opacity,
-        padding=override.padding if override.padding is not None else base.padding,
-        scroll_wait_ms=override.scroll_wait_ms if override.scroll_wait_ms is not None else base.scroll_wait_ms,
-        remove_wait_ms=override.remove_wait_ms if override.remove_wait_ms is not None else base.remove_wait_ms,
-        line_width_min=override.line_width_min if override.line_width_min is not None else base.line_width_min,
-        line_width_max=override.line_width_max if override.line_width_max is not None else base.line_width_max,
-        segments=override.segments if override.segments is not None else base.segments,
-        coverage=override.coverage if override.coverage is not None else base.coverage,
-    )
+    fields = {}
+    for field_name in HighlightStyle.model_fields:
+        override_val = getattr(override, field_name)
+        fields[field_name] = override_val if override_val is not None else getattr(base, field_name)
+    return HighlightStyle(**fields)
 
 
 class Storyboard:
@@ -45,7 +39,7 @@ class Storyboard:
         language: str = "en",
         highlight_style: HighlightStyle | None = None,
         debug_overlay: bool = False,
-        font_size: int = 24,
+        font_size: int = DEFAULT_FONT_SIZE,
         voices: dict[str, dict[str, str]] | None = None,
         video_width: int = 1280,
         video_height: int = 720,
@@ -240,12 +234,12 @@ class Storyboard:
     def _flush(self) -> None:
         options: Options | None = None
         hl = self._highlight_style if self._highlight_style != HighlightStyle() else None
-        if hl or self._voices or self._debug_overlay_flag or self._font_size_val != 24:
+        if hl or self._voices or self._debug_overlay_flag or self._font_size_val != DEFAULT_FONT_SIZE:
             options = Options(
                 highlight_style=hl,
                 voices=self._voices,
                 debug_overlay=True if self._debug_overlay_flag else None,
-                font_size=self._font_size_val if self._font_size_val != 24 else None,
+                font_size=self._font_size_val if self._font_size_val != DEFAULT_FONT_SIZE else None,
             )
         model = StoryboardModel(
             language=self._language,

@@ -16,7 +16,8 @@ import screencastnarrator.generated.RecordingConfig;
 
 public class SharedConfig {
 
-    private static SharedConfig instance;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static volatile SharedConfig instance;
 
     private final RecordingConfig recording;
     private final HighlightConfig highlight;
@@ -34,7 +35,7 @@ public class SharedConfig {
         return highlight;
     }
 
-    public static SharedConfig load() {
+    public static synchronized SharedConfig load() {
         if (instance != null) {
             return instance;
         }
@@ -42,7 +43,7 @@ public class SharedConfig {
             if (is == null) {
                 throw new IllegalStateException("common/config.json not found on classpath");
             }
-            ConfigSchema schema = new ObjectMapper().readValue(is, ConfigSchema.class);
+            ConfigSchema schema = MAPPER.readValue(is, ConfigSchema.class);
             HighlightConfig hl = schema.getHighlight();
             hl.setScrollJs(resolveJs(hl.getScrollJs()));
             hl.setScrollWaitJs(resolveJs(hl.getScrollWaitJs()));
@@ -57,7 +58,8 @@ public class SharedConfig {
 
     public String resolvedDrawJs() {
         String result = highlight.getDrawJs();
-        Map<String, Object> fields = new ObjectMapper().convertValue(highlight, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fields = MAPPER.convertValue(highlight, Map.class);
         for (Map.Entry<String, Object> entry : fields.entrySet()) {
             result = result.replace("{{" + entry.getKey() + "}}", String.valueOf(entry.getValue()));
         }
@@ -89,35 +91,53 @@ public class SharedConfig {
     }
 
     public SharedConfig withHighlightOverrides(HighlightStyle style) {
-        HighlightConfig hl = highlight;
+        HighlightStyle merged = HighlightStyles.merge(highlightStyleFromConfig(highlight), style);
         HighlightConfig overridden = new HighlightConfig(
-                style.getScrollWaitMs() != null ? style.getScrollWaitMs() : hl.getScrollWaitMs(),
-                style.getDrawDurationMs() != null ? style.getDrawDurationMs() : hl.getDrawWaitMs(),
-                style.getRemoveWaitMs() != null ? style.getRemoveWaitMs() : hl.getRemoveWaitMs(),
-                style.getColor() != null ? style.getColor() : hl.getColor(),
-                style.getPadding() != null ? style.getPadding() : hl.getPadding(),
-                style.getAnimationSpeedMs() != null ? style.getAnimationSpeedMs() : hl.getAnimationSpeedMs(),
-                style.getLineWidthMin() != null ? style.getLineWidthMin() : hl.getLineWidthMin(),
-                style.getLineWidthMax() != null ? style.getLineWidthMax() : hl.getLineWidthMax(),
-                style.getOpacity() != null ? style.getOpacity() : hl.getOpacity(),
-                style.getSegments() != null ? style.getSegments() : hl.getSegments(),
-                style.getCoverage() != null ? style.getCoverage() : hl.getCoverage(),
-                hl.getScrollJs(),
-                hl.getScrollWaitJs(),
-                hl.getDrawJs(),
-                hl.getRemoveJs()
+                merged.getScrollWaitMs(),
+                merged.getDrawDurationMs(),
+                merged.getRemoveWaitMs(),
+                merged.getColor(),
+                merged.getPadding(),
+                merged.getAnimationSpeedMs(),
+                merged.getLineWidthMin(),
+                merged.getLineWidthMax(),
+                merged.getOpacity(),
+                merged.getSegments(),
+                merged.getCoverage(),
+                highlight.getScrollJs(),
+                highlight.getScrollWaitJs(),
+                highlight.getDrawJs(),
+                highlight.getRemoveJs()
         );
         return new SharedConfig(recording, overridden);
+    }
+
+    private static HighlightStyle highlightStyleFromConfig(HighlightConfig hl) {
+        return new HighlightStyle(
+                hl.getColor(),
+                hl.getAnimationSpeedMs(),
+                hl.getDrawWaitMs(),
+                hl.getOpacity(),
+                hl.getPadding(),
+                hl.getScrollWaitMs(),
+                hl.getRemoveWaitMs(),
+                hl.getLineWidthMin(),
+                hl.getLineWidthMax(),
+                hl.getSegments(),
+                hl.getCoverage()
+        );
     }
 
     private static String resolveJs(String value) {
         if (!value.endsWith(".js")) return value;
         String resourcePath = "/common/" + value;
         try (InputStream js = SharedConfig.class.getResourceAsStream(resourcePath)) {
-            if (js == null) return value;
+            if (js == null) {
+                throw new IllegalStateException(resourcePath + " not found on classpath");
+            }
             return new String(js.readAllBytes(), StandardCharsets.UTF_8).strip();
         } catch (IOException e) {
-            return value;
+            throw new UncheckedIOException("Failed to read " + resourcePath, e);
         }
     }
 }

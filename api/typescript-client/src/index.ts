@@ -104,11 +104,7 @@ export class SharedConfig {
   private resolveJs(value: string): string {
     if (!value.endsWith(".js")) return value;
     const jsPath = resolve(this.configDir, value);
-    try {
-      return readFileSync(jsPath, "utf-8").trim();
-    } catch {
-      return value;
-    }
+    return readFileSync(jsPath, "utf-8").trim();
   }
 }
 
@@ -140,6 +136,21 @@ interface NarrationEntry {
   highlights?: HighlightEntry[];
   videoFile?: string;
 }
+
+interface StoryboardOptions {
+  highlightStyle?: HighlightStyle;
+  voices?: Record<string, Record<string, string>>;
+  debugOverlay?: boolean;
+  fontSize?: number;
+}
+
+interface StoryboardData {
+  language: string;
+  narrations: NarrationEntry[];
+  options?: StoryboardOptions;
+}
+
+const DEFAULT_FONT_SIZE = 24;
 
 export class Storyboard {
   private readonly config: SharedConfig;
@@ -182,7 +193,7 @@ export class Storyboard {
     this.language = options?.language ?? "en";
     this._highlightStyle = options?.highlightStyle ?? {};
     this._debugOverlay = options?.debugOverlay ?? false;
-    this._fontSize = options?.fontSize ?? 24;
+    this._fontSize = options?.fontSize ?? DEFAULT_FONT_SIZE;
     this._voices = options?.voices;
     this.videoWidth = options?.videoWidth ?? 1280;
     this.videoHeight = options?.videoHeight ?? 720;
@@ -364,15 +375,15 @@ export class Storyboard {
   }
 
   private flush(): void {
-    const data: Record<string, unknown> = {
+    const data: StoryboardData = {
       language: this.language,
       narrations: this.narrations,
     };
-    const options: Record<string, unknown> = {};
+    const options: StoryboardOptions = {};
     if (Object.keys(this._highlightStyle).length > 0) options.highlightStyle = this._highlightStyle;
     if (this._voices) options.voices = this._voices;
     if (this.debugOverlay) options.debugOverlay = true;
-    if (this.fontSize !== 24) options.fontSize = this.fontSize;
+    if (this.fontSize !== DEFAULT_FONT_SIZE) options.fontSize = this.fontSize;
     if (Object.keys(options).length > 0) data.options = options;
     writeFileSync(
       join(this.outputDir, "storyboard.json"),

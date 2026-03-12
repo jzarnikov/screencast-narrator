@@ -13,6 +13,26 @@ from screencast_narrator_client.generated.config_types import (
 from screencast_narrator_client.generated.storyboard_types import HighlightStyle
 
 
+def _merge_style_into_config(hl: HighlightConfig, style: HighlightStyle) -> HighlightConfig:
+    return HighlightConfig(
+        scroll_wait_ms=style.scroll_wait_ms if style.scroll_wait_ms is not None else hl.scroll_wait_ms,
+        draw_wait_ms=style.draw_duration_ms if style.draw_duration_ms is not None else hl.draw_wait_ms,
+        remove_wait_ms=style.remove_wait_ms if style.remove_wait_ms is not None else hl.remove_wait_ms,
+        color=style.color if style.color is not None else hl.color,
+        padding=style.padding if style.padding is not None else hl.padding,
+        animation_speed_ms=style.animation_speed_ms if style.animation_speed_ms is not None else hl.animation_speed_ms,
+        line_width_min=style.line_width_min if style.line_width_min is not None else hl.line_width_min,
+        line_width_max=style.line_width_max if style.line_width_max is not None else hl.line_width_max,
+        opacity=style.opacity if style.opacity is not None else hl.opacity,
+        segments=style.segments if style.segments is not None else hl.segments,
+        coverage=style.coverage if style.coverage is not None else hl.coverage,
+        scroll_js=hl.scroll_js,
+        scroll_wait_js=hl.scroll_wait_js,
+        draw_js=hl.draw_js,
+        remove_js=hl.remove_js,
+    )
+
+
 class SharedConfig:
     def __init__(self, model: ConfigModel, config_dir: Path) -> None:
         self._model = model
@@ -69,24 +89,7 @@ class SharedConfig:
         ]
 
     def with_highlight_overrides(self, style: HighlightStyle) -> SharedConfig:
-        hl = self.highlight
-        overridden = HighlightConfig(
-            scroll_wait_ms=style.scroll_wait_ms if style.scroll_wait_ms is not None else hl.scroll_wait_ms,
-            draw_wait_ms=style.draw_duration_ms if style.draw_duration_ms is not None else hl.draw_wait_ms,
-            remove_wait_ms=style.remove_wait_ms if style.remove_wait_ms is not None else hl.remove_wait_ms,
-            color=style.color if style.color is not None else hl.color,
-            padding=style.padding if style.padding is not None else hl.padding,
-            animation_speed_ms=style.animation_speed_ms if style.animation_speed_ms is not None else hl.animation_speed_ms,
-            line_width_min=style.line_width_min if style.line_width_min is not None else hl.line_width_min,
-            line_width_max=style.line_width_max if style.line_width_max is not None else hl.line_width_max,
-            opacity=style.opacity if style.opacity is not None else hl.opacity,
-            segments=style.segments if style.segments is not None else hl.segments,
-            coverage=style.coverage if style.coverage is not None else hl.coverage,
-            scroll_js=hl.scroll_js,
-            scroll_wait_js=hl.scroll_wait_js,
-            draw_js=hl.draw_js,
-            remove_js=hl.remove_js,
-        )
+        overridden = _merge_style_into_config(self.highlight, style)
         model = ConfigModel(recording=self.recording, highlight=overridden)
         return SharedConfig(model, self._config_dir)
 

@@ -58,7 +58,8 @@ class CdpVideoRecorder:
         data = event["data"]
         session_id = event["sessionId"]
         frame_bytes = base64.b64decode(data)
-        assert self._ffmpeg_process is not None and self._ffmpeg_process.stdin is not None
+        if self._ffmpeg_process is None or self._ffmpeg_process.stdin is None:
+            raise RuntimeError("ffmpeg process not started")
         self._ffmpeg_process.stdin.write(frame_bytes)
         self._ffmpeg_process.stdin.flush()
         self._frame_count += 1
@@ -91,7 +92,8 @@ class CdpVideoRecorder:
         self._cdp_session.send("Page.stopScreencast")
         self._page.wait_for_timeout(rec.stop_settle_ms)
 
-        assert self._ffmpeg_process is not None and self._ffmpeg_process.stdin is not None
+        if self._ffmpeg_process is None or self._ffmpeg_process.stdin is None:
+            raise RuntimeError("ffmpeg process not started")
         self._ffmpeg_process.stdin.close()
         self._ffmpeg_process.wait(timeout=30)
 

@@ -19,6 +19,10 @@ import screencastnarrator.generated.ScreenAction.ScreenActionTiming;
 public class Storyboard {
 
     private static final Logger LOG = Logger.getLogger(Storyboard.class.getName());
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final String VIDEO_FILENAME_FORMAT = "narration-%03d.mp4";
+    private static final String VIDEO_DIR = "videos";
+    private static final int DEFAULT_FONT_SIZE = 24;
 
     @FunctionalInterface
     public interface Action {
@@ -79,7 +83,7 @@ public class Storyboard {
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle,
                        boolean debugOverlay) throws Exception {
-        this(outputDir, page, language, highlightStyle, debugOverlay, 24, null);
+        this(outputDir, page, language, highlightStyle, debugOverlay, DEFAULT_FONT_SIZE, null);
     }
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle) throws Exception {
@@ -87,7 +91,7 @@ public class Storyboard {
     }
 
     public Storyboard(Path outputDir, Page page, String language) throws Exception {
-        this(outputDir, page, language, null, false, 24, null);
+        this(outputDir, page, language, null, false, DEFAULT_FONT_SIZE, null);
     }
 
     public Storyboard(Path outputDir, Page page) throws Exception {
@@ -141,8 +145,8 @@ public class Storyboard {
     }
 
     private void startRecording(int narrationId) throws IOException {
-        Path videoDir = outputDir.resolve("videos");
-        Path videoFile = videoDir.resolve(String.format("narration-%03d.mp4", narrationId));
+        Path videoDir = outputDir.resolve(VIDEO_DIR);
+        Path videoFile = videoDir.resolve(String.format(VIDEO_FILENAME_FORMAT, narrationId));
         currentRecorder = new CdpVideoRecorder(page, videoFile, videoWidth, videoHeight, config);
         currentRecorder.start();
         narrationStartTimeNanos = System.nanoTime();
@@ -267,7 +271,7 @@ public class Storyboard {
         if (!pendingTranslations.isEmpty()) {
             narration.put("translations", new LinkedHashMap<>(pendingTranslations));
         }
-        narration.put("videoFile", String.format("videos/narration-%03d.mp4", pendingNarrationId));
+        narration.put("videoFile", VIDEO_DIR + "/" + String.format(VIDEO_FILENAME_FORMAT, pendingNarrationId));
         if (!pendingScreenActions.isEmpty()) {
             narration.put("screenActions", new ArrayList<>(pendingScreenActions));
         }
@@ -324,21 +328,20 @@ public class Storyboard {
         return said;
     }
 
+    @SuppressWarnings("unchecked")
     private void flush() throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("language", language);
         root.put("narrations", narrations);
         Map<String, Object> options = new LinkedHashMap<>();
-        HighlightStyle hs = highlightStyle;
-        if (hs != null && !hs.equals(new HighlightStyle())) {
-            options.put("highlightStyle", mapper.convertValue(hs, Map.class));
+        if (!highlightStyle.equals(new HighlightStyle())) {
+            options.put("highlightStyle", MAPPER.convertValue(highlightStyle, Map.class));
         }
         if (voices != null && !voices.isEmpty()) options.put("voices", voices);
         if (debugOverlay) options.put("debugOverlay", true);
-        if (fontSize != 24) options.put("fontSize", fontSize);
+        if (fontSize != DEFAULT_FONT_SIZE) options.put("fontSize", fontSize);
         if (!options.isEmpty()) root.put("options", options);
-        String json = mapper
+        String json = MAPPER
             .writerWithDefaultPrettyPrinter()
             .writeValueAsString(root);
         Files.writeString(outputDir.resolve("storyboard.json"), json);
