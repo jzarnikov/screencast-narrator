@@ -56,6 +56,15 @@ def _process_per_narration_videos(
     output_file = target_dir / (target_dir.name + ".mp4")
 
     require_command("ffmpeg")
+    # Clean ephemeral dirs to avoid stale artifacts from previous runs.
+    # Positional filenames (segment_000.wav, clip_000.mp4) don't encode content,
+    # so a re-run with changed narration text would silently reuse old audio.
+    # The TTS backend has its own content-addressed cache, so regeneration is cheap.
+    import shutil
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
+    if audio_dir.exists():
+        shutil.rmtree(audio_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
     audio_dir.mkdir(parents=True, exist_ok=True)
 
