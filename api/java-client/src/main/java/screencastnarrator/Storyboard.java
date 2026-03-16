@@ -23,6 +23,8 @@ public class Storyboard {
     private static final String VIDEO_FILENAME_FORMAT = "narration-%03d.mp4";
     private static final String VIDEO_DIR = "videos";
     private static final int DEFAULT_FONT_SIZE = 24;
+    private static final int DEFAULT_VIDEO_WIDTH = 1280;
+    private static final int DEFAULT_VIDEO_HEIGHT = 720;
 
     @FunctionalInterface
     public interface Action {
@@ -35,7 +37,12 @@ public class Storyboard {
     private final String language;
     private final int videoWidth;
     private final int videoHeight;
+    private final boolean debugOverlay;
+    private final int fontSize;
+    private final Map<String, Map<String, String>> voices;
     private final List<Map<String, Object>> narrations = new ArrayList<>();
+    private final List<Map<String, Object>> pendingScreenActions = new ArrayList<>();
+    private final List<Map<String, Object>> pendingHighlights = new ArrayList<>();
     private int narrationIdCounter = 0;
     private int screenActionIdCounter = 0;
     private int highlightIdCounter = 0;
@@ -43,21 +50,16 @@ public class Storyboard {
     private String pendingText = null;
     private Map<String, String> pendingTranslations = new LinkedHashMap<>();
     private int pendingNarrationId = -1;
-    private final List<Map<String, Object>> pendingScreenActions = new ArrayList<>();
-    private final List<Map<String, Object>> pendingHighlights = new ArrayList<>();
     private Integer pendingActionId = null;
     private String pendingVoice = null;
     private HighlightStyle highlightStyle;
-    private final boolean debugOverlay;
-    private final int fontSize;
-    private Map<String, Map<String, String>> voices;
 
     private CdpVideoRecorder currentRecorder;
     private long narrationStartTimeNanos;
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle,
                        boolean debugOverlay, int fontSize, Map<String, Map<String, String>> voices) throws Exception {
-        this(outputDir, page, language, highlightStyle, debugOverlay, fontSize, voices, 1280, 720);
+        this(outputDir, page, language, highlightStyle, debugOverlay, fontSize, voices, DEFAULT_VIDEO_WIDTH, DEFAULT_VIDEO_HEIGHT);
     }
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle,
@@ -87,7 +89,7 @@ public class Storyboard {
     }
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle) throws Exception {
-        this(outputDir, page, language, highlightStyle, false, 24, null);
+        this(outputDir, page, language, highlightStyle, false, DEFAULT_FONT_SIZE, null);
     }
 
     public Storyboard(Path outputDir, Page page, String language) throws Exception {

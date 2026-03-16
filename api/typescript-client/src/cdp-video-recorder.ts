@@ -4,6 +4,9 @@ import { mkdirSync } from "fs";
 import { dirname } from "path";
 import { SharedConfig } from "./index.js";
 
+const MAX_FRAME_WAIT_ITERATIONS = 50;
+const FRAME_WAIT_MULTIPLIER = 2;
+
 export class CdpVideoRecorder {
   private readonly page: Page;
   private readonly outputFile: string;
@@ -14,6 +17,7 @@ export class CdpVideoRecorder {
   private ffmpegProcess: ChildProcess | null = null;
   private recording = false;
   private _frameCount = 0;
+  private frameHandler: ((event: Record<string, unknown>) => void) | null = null;
 
   constructor(page: Page, outputFile: string, width: number, height: number, config: SharedConfig) {
     this.page = page;
@@ -33,17 +37,18 @@ export class CdpVideoRecorder {
     this.recording = true;
     this._frameCount = 0;
 
-    this.cdpSession.on("Page.screencastFrame", (event) => {
+    this.frameHandler = (event) => {
       if (!this.recording) return;
-      const data: string = event.data;
-      const sessionId: number = event.sessionId;
+      const data = event.data as string;
+      const sessionId = event.sessionId as number;
       const frameBytes = Buffer.from(data, "base64");
       if (this.ffmpegProcess?.stdin?.writable) {
         this.ffmpegProcess.stdin.write(frameBytes);
       }
       this._frameCount++;
       this.cdpSession!.send("Page.screencastFrameAck", { sessionId });
-    });
+    };
+    this.cdpSession.on("Page.screencastFrame", this.frameHandler);
 
     const rec = this.config.recording;
     await this.cdpSession.send("Page.startScreencast", {
@@ -59,12 +64,11 @@ export class CdpVideoRecorder {
 
   private async waitForMinFrames(): Promise<void> {
     const rec = this.config.recording;
-    const maxWaits = 50;
-    for (let i = 0; i < maxWaits && this._frameCount < rec.minFrames; i++) {
+    for (let i = 0; i < MAX_FRAME_WAIT_ITERATIONS && this._frameCount < rec.minFrames; i++) {
       await this.page.waitForTimeout(rec.minFrameWaitMs);
     }
     if (this._frameCount < 1) {
-      throw new Error(`CDP screencast: no frames received after ${maxWaits * rec.minFrameWaitMs}ms`);
+      throw new Error(`CDP screencast: no frames received after ${MAX_FRAME_WAIT_ITERATIONS * rec.minFrameWaitMs}ms`);
     }
   }
 
@@ -73,13 +77,17 @@ export class CdpVideoRecorder {
     const rec = this.config.recording;
 
     if (this._frameCount < rec.minFrames) {
-      const waits = (rec.minFrames - this._frameCount) * 2;
+      const waits = (rec.minFrames - this._frameCount) * FRAME_WAIT_MULTIPLIER;
       for (let i = 0; i < waits && this._frameCount < rec.minFrames; i++) {
         await this.page.waitForTimeout(rec.minFrameWaitMs);
       }
     }
 
     this.recording = false;
+    if (this.frameHandler) {
+      this.cdpSession!.off("Page.screencastFrame", this.frameHandler);
+      this.frameHandler = null;
+    }
     await this.cdpSession!.send("Page.stopScreencast");
     await this.page.waitForTimeout(rec.stopSettleMs);
 

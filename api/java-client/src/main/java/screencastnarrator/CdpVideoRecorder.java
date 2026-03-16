@@ -19,6 +19,9 @@ import screencastnarrator.generated.RecordingConfig;
 public class CdpVideoRecorder {
 
     private static final Logger LOG = Logger.getLogger(CdpVideoRecorder.class.getName());
+    private static final int MAX_FRAME_WAIT_ITERATIONS = 50;
+    private static final int FRAME_WAIT_MULTIPLIER = 2;
+    private static final int FFMPEG_SHUTDOWN_TIMEOUT_SECONDS = 30;
 
     private final Page page;
     private final Path outputFile;
@@ -101,13 +104,12 @@ public class CdpVideoRecorder {
 
     private void waitForMinFrames() {
         RecordingConfig rec = config.recording();
-        int maxWaits = 50;
-        for (int i = 0; i < maxWaits && frameCount < rec.getMinFrames(); i++) {
+        for (int i = 0; i < MAX_FRAME_WAIT_ITERATIONS && frameCount < rec.getMinFrames(); i++) {
             page.waitForTimeout(rec.getMinFrameWaitMs());
             ackLatestFrame();
         }
         if (frameCount < 1) {
-            throw new RuntimeException("CDP screencast: no frames received after " + (maxWaits * rec.getMinFrameWaitMs()) + "ms");
+            throw new RuntimeException("CDP screencast: no frames received after " + (MAX_FRAME_WAIT_ITERATIONS * rec.getMinFrameWaitMs()) + "ms");
         }
     }
 
@@ -116,7 +118,7 @@ public class CdpVideoRecorder {
         RecordingConfig rec = config.recording();
 
         if (frameCount < rec.getMinFrames()) {
-            int waits = (rec.getMinFrames() - frameCount) * 2;
+            int waits = (rec.getMinFrames() - frameCount) * FRAME_WAIT_MULTIPLIER;
             for (int i = 0; i < waits && frameCount < rec.getMinFrames(); i++) {
                 page.waitForTimeout(rec.getMinFrameWaitMs());
             }
@@ -131,10 +133,10 @@ public class CdpVideoRecorder {
             ffmpegStdin.close();
         }
 
-        boolean exited = ffmpegProcess.waitFor(30, TimeUnit.SECONDS);
+        boolean exited = ffmpegProcess.waitFor(FFMPEG_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         if (!exited) {
             ffmpegProcess.destroyForcibly();
-            throw new RuntimeException("ffmpeg did not exit within 30 seconds");
+            throw new RuntimeException("ffmpeg did not exit within " + FFMPEG_SHUTDOWN_TIMEOUT_SECONDS + " seconds");
         }
 
         int exitCode = ffmpegProcess.exitValue();

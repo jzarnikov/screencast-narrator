@@ -11,6 +11,10 @@ from screencast_narrator_client.shared_config import SharedConfig
 
 log = logging.getLogger(__name__)
 
+MAX_FRAME_WAIT_ITERATIONS = 50
+FRAME_WAIT_MULTIPLIER = 2
+FFMPEG_SHUTDOWN_TIMEOUT_SECONDS = 30
+
 
 class CdpVideoRecorder:
     def __init__(self, page, output_file: Path, width: int, height: int, config: SharedConfig) -> None:
@@ -67,14 +71,13 @@ class CdpVideoRecorder:
 
     def _wait_for_min_frames(self) -> None:
         rec = self._config.recording
-        max_waits = 50
-        for _ in range(max_waits):
+        for _ in range(MAX_FRAME_WAIT_ITERATIONS):
             if self._frame_count >= rec.min_frames:
                 break
             self._page.wait_for_timeout(rec.min_frame_wait_ms)
         if self._frame_count < 1:
             raise RuntimeError(
-                f"CDP screencast: no frames received after {max_waits * rec.min_frame_wait_ms}ms")
+                f"CDP screencast: no frames received after {MAX_FRAME_WAIT_ITERATIONS * rec.min_frame_wait_ms}ms")
 
     def stop(self) -> None:
         if not self._recording:
@@ -82,7 +85,7 @@ class CdpVideoRecorder:
         rec = self._config.recording
 
         if self._frame_count < rec.min_frames:
-            waits = (rec.min_frames - self._frame_count) * 2
+            waits = (rec.min_frames - self._frame_count) * FRAME_WAIT_MULTIPLIER
             for _ in range(waits):
                 if self._frame_count >= rec.min_frames:
                     break
@@ -95,7 +98,7 @@ class CdpVideoRecorder:
         if self._ffmpeg_process is None or self._ffmpeg_process.stdin is None:
             raise RuntimeError("ffmpeg process not started")
         self._ffmpeg_process.stdin.close()
-        self._ffmpeg_process.wait(timeout=30)
+        self._ffmpeg_process.wait(timeout=FFMPEG_SHUTDOWN_TIMEOUT_SECONDS)
 
         if self._ffmpeg_process.returncode != 0:
             output = self._ffmpeg_process.stdout.read().decode() if self._ffmpeg_process.stdout else ""

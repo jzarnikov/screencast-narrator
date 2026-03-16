@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -21,6 +20,8 @@ from screencast_narrator_client.shared_config import SharedConfig, load_shared_c
 log = logging.getLogger(__name__)
 
 DEFAULT_FONT_SIZE = 24
+DEFAULT_VIDEO_WIDTH = 1280
+DEFAULT_VIDEO_HEIGHT = 720
 
 
 def _merge_highlight_styles(base: HighlightStyle, override: HighlightStyle) -> HighlightStyle:
@@ -41,8 +42,8 @@ class Storyboard:
         debug_overlay: bool = False,
         font_size: int = DEFAULT_FONT_SIZE,
         voices: dict[str, dict[str, str]] | None = None,
-        video_width: int = 1280,
-        video_height: int = 720,
+        video_width: int = DEFAULT_VIDEO_WIDTH,
+        video_height: int = DEFAULT_VIDEO_HEIGHT,
     ) -> None:
         self._output_dir = output_dir
         self._page = page
@@ -57,6 +58,7 @@ class Storyboard:
         self._narration_open: bool = False
         self._pending_text: str | None = None
         self._pending_narration_id: int = -1
+        self._pending_translations: dict[str, str] = {}
         self._pending_screen_actions: list[ScreenAction] = []
         self._pending_action_id: int | None = None
         self._pending_voice: str | None = None
@@ -64,7 +66,6 @@ class Storyboard:
         self._video_width = video_width
         self._video_height = video_height
         self._current_recorder = None
-        self._narration_start_ns: int = 0
         output_dir.mkdir(parents=True, exist_ok=True)
 
     @property
@@ -83,9 +84,6 @@ class Storyboard:
         self._highlight_style = _merge_highlight_styles(self._highlight_style, style)
         return self
 
-    def _elapsed_ms(self) -> int:
-        return (time.monotonic_ns() - self._narration_start_ns) // 1_000_000
-
     def _start_recording(self, narration_id: int) -> None:
         from screencast_narrator_client.cdp_video_recorder import CdpVideoRecorder
 
@@ -93,7 +91,6 @@ class Storyboard:
         video_file = video_dir / f"narration-{narration_id:03d}.mp4"
         self._current_recorder = CdpVideoRecorder(self._page, video_file, self._video_width, self._video_height, self._config)
         self._current_recorder.start()
-        self._narration_start_ns = time.monotonic_ns()
 
     def _stop_recording(self) -> None:
         if self._current_recorder is None:

@@ -2,14 +2,14 @@ import { Locator, Page } from "playwright";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { HighlightStyle } from "./generated/storyboard-types.js";
+import { HighlightStyle, ScreenActionTiming } from "./generated/storyboard-types.js";
 import { ConfigSchema, RecordingConfig, HighlightConfig } from "./generated/config-types.js";
 import { CdpVideoRecorder } from "./cdp-video-recorder.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const configPath = resolve(__dir, "../../common/config.json");
 
-export { HighlightStyle } from "./generated/storyboard-types.js";
+export { HighlightStyle, ScreenActionTiming } from "./generated/storyboard-types.js";
 export { RecordingConfig, HighlightConfig } from "./generated/config-types.js";
 
 function mergeHighlightStyles(base: HighlightStyle, override: HighlightStyle): HighlightStyle {
@@ -114,12 +114,10 @@ export function loadSharedConfig(): SharedConfig {
   return new SharedConfig(raw.recording, raw.highlight, configDir);
 }
 
-export type ScreenActionTiming = "casted" | "elastic" | "timed";
-
 interface ScreenActionEntry {
   screenActionId: number;
   description?: string;
-  timing?: "elastic" | "timed";
+  timing?: Exclude<ScreenActionTiming, "casted">;
   durationMs?: number;
 }
 
@@ -151,6 +149,8 @@ interface StoryboardData {
 }
 
 const DEFAULT_FONT_SIZE = 24;
+const DEFAULT_VIDEO_WIDTH = 1280;
+const DEFAULT_VIDEO_HEIGHT = 720;
 
 export class Storyboard {
   private readonly config: SharedConfig;
@@ -195,8 +195,8 @@ export class Storyboard {
     this._debugOverlay = options?.debugOverlay ?? false;
     this._fontSize = options?.fontSize ?? DEFAULT_FONT_SIZE;
     this._voices = options?.voices;
-    this.videoWidth = options?.videoWidth ?? 1280;
-    this.videoHeight = options?.videoHeight ?? 720;
+    this.videoWidth = options?.videoWidth ?? DEFAULT_VIDEO_WIDTH;
+    this.videoHeight = options?.videoHeight ?? DEFAULT_VIDEO_HEIGHT;
     mkdirSync(outputDir, { recursive: true });
   }
 
@@ -223,8 +223,14 @@ export class Storyboard {
 
   private async startRecording(narrationId: number): Promise<void> {
     const videoFile = join(this.outputDir, "videos", `narration-${String(narrationId).padStart(3, "0")}.mp4`);
-    this.currentRecorder = new CdpVideoRecorder(this.page!, videoFile, this.videoWidth, this.videoHeight, this.config);
-    await this.currentRecorder.start();
+    const recorder = new CdpVideoRecorder(this.page!, videoFile, this.videoWidth, this.videoHeight, this.config);
+    try {
+      await recorder.start();
+    } catch (e) {
+      this.currentRecorder = null;
+      throw e;
+    }
+    this.currentRecorder = recorder;
     this.narrationStartTimeMs = performance.now();
   }
 
@@ -398,7 +404,7 @@ export class Storyboard {
     await this.page.evaluate((code) => new Function("return " + code)()(), hlConfig.resolvedScrollWaitJs);
     await locator.evaluate((el, code) => new Function("return " + code)()(el), hlConfig.resolvedDrawJs);
     await this.page.waitForTimeout(hlConfig.highlight.animationSpeedMs + hlConfig.highlight.drawWaitMs);
-    await this.page.evaluate(hlConfig.resolvedRemoveJs);
+    await this.page.evaluate((code) => new Function("return " + code)()(), hlConfig.resolvedRemoveJs);
     await this.page.waitForTimeout(hlConfig.highlight.removeWaitMs);
   }
 }

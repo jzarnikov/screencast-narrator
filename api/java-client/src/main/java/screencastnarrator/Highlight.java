@@ -5,6 +5,8 @@ import com.microsoft.playwright.Page;
 
 public class Highlight {
 
+    private static final int ACK_POLLING_INTERVAL_MS = 40;
+
     private Highlight() {}
 
     public static void drawHighlight(Page page, Locator locator, SharedConfig config, CdpVideoRecorder recorder) {
@@ -34,7 +36,7 @@ public class Highlight {
             return;
         }
         int elapsed = 0;
-        int interval = 40;
+        int interval = ACK_POLLING_INTERVAL_MS;
         while (elapsed < totalMs) {
             int wait = Math.min(interval, totalMs - elapsed);
             page.waitForTimeout(wait);
