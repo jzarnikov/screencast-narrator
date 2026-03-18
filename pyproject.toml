@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "screencast-narrator"
-version = "0.4.2"
+version = "0.5.1"
 description = "Turn raw screen recordings + narration text into polished narrated screencasts"
 license = "Apache-2.0"
 readme = "README.md"
@@ -25,13 +25,14 @@ dependencies = [
     "Pillow>=10.0",
     "qrcode>=7.4",
     "screencast-narrator-client",
+    "edge-tts>=6.1",
+    "soundfile>=0.12",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
 tts = [
     "kokoro>=0.3",
-    "soundfile>=0.12",
-    "numpy>=1.24",
 ]
 dev = [
     "pytest>=7.0",
