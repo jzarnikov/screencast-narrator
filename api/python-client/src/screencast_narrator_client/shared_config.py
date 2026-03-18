@@ -101,12 +101,14 @@ class SharedConfig:
 
 
 def _find_config_path() -> Path:
-    candidate = Path(__file__).resolve().parent.parent.parent.parent / "common" / "config.json"
-    if candidate.exists():
-        return candidate
+    bundled = Path(__file__).resolve().parent / "common" / "config.json"
+    if bundled.exists():
+        return bundled
+    repo = Path(__file__).resolve().parent.parent.parent.parent / "common" / "config.json"
+    if repo.exists():
+        return repo
     raise FileNotFoundError(
-        f"api/common/config.json not found at {candidate}. "
-        f"Ensure you are running from a repository checkout."
+        f"config.json not found. Searched:\n  {bundled}\n  {repo}"
     )
 
 

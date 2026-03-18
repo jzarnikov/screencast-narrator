@@ -4,8 +4,15 @@ TS_GEN := api/typescript-client/src/generated
 
 .PHONY: generate generate-python generate-typescript generate-java test test-clients test-typescript test-java release
 
-generate: generate-python generate-typescript
+PY_COMMON := api/python-client/src/screencast_narrator_client/common
+
+generate: generate-python generate-typescript sync-common
 	@echo "Done."
+
+sync-common:
+	@mkdir -p $(PY_COMMON)/js
+	cp $(COMMON)/config.json $(PY_COMMON)/
+	cp $(COMMON)/js/*.js $(PY_COMMON)/js/
 
 generate-python: $(PY_GEN)/storyboard_types.py $(PY_GEN)/config_types.py $(PY_GEN)/__init__.py
 
