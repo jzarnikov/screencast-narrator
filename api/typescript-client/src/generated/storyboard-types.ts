@@ -32,12 +32,10 @@ export interface StoryboardSchema {
   options?: {
     highlightStyle?: HighlightStyle;
     /**
-     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * Named voice identities mapping alias to gender (e.g. {"nathaly": "female", "james": "male"})
      */
     voices?: {
-      [k: string]: {
-        [k: string]: string;
-      };
+      [k: string]: "female" | "male";
     };
     /**
      * Show debug overlay in the final video

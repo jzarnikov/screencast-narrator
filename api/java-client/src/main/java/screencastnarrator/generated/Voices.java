@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
 /**
- * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+ * Named voice identities mapping alias to gender (e.g. {"nathaly": "female", "james": "male"})
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)

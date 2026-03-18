@@ -137,7 +137,7 @@ interface NarrationEntry {
 
 interface StoryboardOptions {
   highlightStyle?: HighlightStyle;
-  voices?: Record<string, Record<string, string>>;
+  voices?: Record<string, string>;
   debugOverlay?: boolean;
   fontSize?: number;
 }
@@ -174,7 +174,7 @@ export class Storyboard {
   private _highlightStyle: HighlightStyle;
   private _debugOverlay: boolean;
   private _fontSize: number;
-  private _voices: Record<string, Record<string, string>> | undefined;
+  private _voices: Record<string, string> | undefined;
   private currentRecorder: CdpVideoRecorder | null = null;
   private narrationStartTimeMs = 0;
 
@@ -183,7 +183,7 @@ export class Storyboard {
     highlightStyle?: HighlightStyle;
     debugOverlay?: boolean;
     fontSize?: number;
-    voices?: Record<string, Record<string, string>>;
+    voices?: Record<string, string>;
     videoWidth?: number;
     videoHeight?: number;
   }) {
@@ -404,7 +404,7 @@ export class Storyboard {
     await this.page.evaluate((code) => new Function("return " + code)()(), hlConfig.resolvedScrollWaitJs);
     await locator.evaluate((el, code) => new Function("return " + code)()(el), hlConfig.resolvedDrawJs);
     await this.page.waitForTimeout(hlConfig.highlight.animationSpeedMs + hlConfig.highlight.drawWaitMs);
-    await this.page.evaluate((code) => new Function("return " + code)()(), hlConfig.resolvedRemoveJs);
+    await this.page.evaluate(hlConfig.resolvedRemoveJs);
     await this.page.waitForTimeout(hlConfig.highlight.removeWaitMs);
   }
 }

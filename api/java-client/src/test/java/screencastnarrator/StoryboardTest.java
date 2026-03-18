@@ -48,7 +48,7 @@ class StoryboardTest {
     @Test
     void storesVoiceOnNarration(@TempDir Path dir) throws Exception {
         Storyboard sb = new Storyboard(dir, null, "en", null, false, 24,
-                Map.of("douglas", Map.of("en", "am_adam")));
+                Map.of("douglas", "male"));
         sb.beginNarration("Hello", Map.of(), "douglas");
         sb.endNarration();
 
@@ -89,14 +89,13 @@ class StoryboardTest {
     @Test
     void includesVoicesInOptions(@TempDir Path dir) throws Exception {
         Storyboard sb = new Storyboard(dir, null, "en", null, false, 24,
-                Map.of("douglas", Map.of("en", "am_adam"),
-                       "natalie", Map.of("en", "bf_alice")));
+                Map.of("douglas", "male", "natalie", "female"));
         sb.beginNarration("Hello", Map.of(), "douglas");
         sb.endNarration();
 
         JsonNode options = readStoryboard(dir).get("options");
-        assertEquals("am_adam", options.get("voices").get("douglas").get("en").asText());
-        assertEquals("bf_alice", options.get("voices").get("natalie").get("en").asText());
+        assertEquals("male", options.get("voices").get("douglas").asText());
+        assertEquals("female", options.get("voices").get("natalie").asText());
     }
 
     @Test

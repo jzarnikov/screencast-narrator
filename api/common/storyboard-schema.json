@@ -19,10 +19,10 @@
         "voices": {
           "type": "object",
           "additionalProperties": {
-            "type": "object",
-            "additionalProperties": { "type": "string" }
+            "type": "string",
+            "enum": ["female", "male"]
           },
-          "description": "Named voice identities mapping alias to language-specific TTS voices (e.g. {\"nathaly\": {\"en\": \"bf_alice\", \"de\": \"de_natasha\"}})"
+          "description": "Named voice identities mapping alias to gender (e.g. {\"nathaly\": \"female\", \"james\": \"male\"})"
         },
         "debugOverlay": {
           "type": "boolean",

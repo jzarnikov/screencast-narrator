@@ -41,7 +41,7 @@ class Storyboard:
         highlight_style: HighlightStyle | None = None,
         debug_overlay: bool = False,
         font_size: int = DEFAULT_FONT_SIZE,
-        voices: dict[str, dict[str, str]] | None = None,
+        voices: dict[str, str] | None = None,
         video_width: int = DEFAULT_VIDEO_WIDTH,
         video_height: int = DEFAULT_VIDEO_HEIGHT,
     ) -> None:

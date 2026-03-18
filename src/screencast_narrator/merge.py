@@ -13,7 +13,7 @@ from screencast_narrator.ffmpeg import exec_ffmpeg, probe_duration_ms, require_c
 from screencast_narrator.narration_segment import NarrationSegment
 from screencast_narrator.debug_overlay import OverlayResult, generate_overlay_filter
 from screencast_narrator.timeline_html import generate_timeline_html
-from screencast_narrator.tts import KokoroTTS, TTSBackend
+from screencast_narrator.tts import EdgeTTS, KokoroTTS, TTSBackend
 from screencast_narrator_client.generated.storyboard_types import (
     Model as StoryboardModel,
     Narration as StoryboardNarration,
@@ -24,6 +24,7 @@ from screencast_narrator_client.generated.storyboard_types import (
 def process(
     target_dir: Path,
     tts_backend: TTSBackend | None = None,
+    offline: bool = False,
     debug_overlay: bool | None = None,
     font_size: int | None = None,
 ) -> None:
@@ -39,6 +40,10 @@ def process(
             "Use CdpVideoRecorder to record per-narration videos during browser automation."
         )
 
+    if tts_backend is None:
+        language = storyboard_data.get("language", "en")
+        tts_backend = KokoroTTS(language=language) if offline else EdgeTTS(language=language)
+
     _process_per_narration_videos(
         target_dir, storyboard_data, tts_backend, debug_overlay, font_size
     )
@@ -47,7 +52,7 @@ def process(
 def _process_per_narration_videos(
     target_dir: Path,
     storyboard_data: dict,
-    tts_backend: TTSBackend | None = None,
+    tts_backend: TTSBackend,
     debug_overlay: bool | None = None,
     font_size: int | None = None,
 ) -> None:
@@ -92,8 +97,6 @@ def _process_per_narration_videos(
         options=StoryboardOptions(voices=voices_map) if voices_map else None,
     )
 
-    if tts_backend is None:
-        tts_backend = KokoroTTS()
     _generate_tts_audio(storyboard, audio_dir, tts_backend)
 
     segment_files: list[Path] = []
@@ -221,33 +224,55 @@ def _segment_name(index: int) -> str:
     return f"segment_{index:03d}.wav"
 
 
-def _resolve_voice(
+def _build_voice_assignments(
     storyboard: StoryboardModel,
-    narration: StoryboardNarration,
-) -> str | None:
+    tts_backend: TTSBackend,
+) -> dict[str, str]:
+    """Assign concrete logical voices (female-1, male-2, ...) to each alias based on gender and order."""
     voices = storyboard.options.voices if storyboard.options and storyboard.options.voices else {}
     if not voices:
+        return {}
+    counters: dict[str, int] = {"female": 0, "male": 0}
+    assignments: dict[str, str] = {}
+    for alias, gender in voices.items():
+        if gender not in counters:
+            raise ValueError(f"Voice alias '{alias}' has invalid gender '{gender}'. Must be 'female' or 'male'.")
+        counters[gender] += 1
+        logical = f"{gender}-{counters[gender]}"
+        tts_backend.resolve_voice(logical)
+        assignments[alias] = logical
+    return assignments
+
+
+def _resolve_voice(
+    narration: StoryboardNarration,
+    voice_assignments: dict[str, str],
+) -> str | None:
+    if not voice_assignments:
         return None
     alias = narration.voice
     if alias is None:
-        first_alias = next(iter(voices), None)
-        if first_alias is None:
+        alias = next(iter(voice_assignments), None)
+        if alias is None:
             return None
-        alias = first_alias
-    voice_map = voices.get(alias)
-    if voice_map is None:
-        return None
-    return voice_map.get(storyboard.language)
+    return voice_assignments.get(alias)
+
+
+def _resolve_text(narration: StoryboardNarration, language: str) -> str:
+    if narration.translations and language in narration.translations:
+        return narration.translations[language]
+    return narration.text or ""
 
 
 def _generate_tts_audio(storyboard: StoryboardModel, audio_dir: Path, tts_backend: TTSBackend) -> None:
+    voice_assignments = _build_voice_assignments(storyboard, tts_backend)
     for i, narration in enumerate(storyboard.narrations):
-        text = narration.text or ""
+        text = _resolve_text(narration, storyboard.language)
         if not text:
             continue
         wav_file = audio_dir / _segment_name(i)
         if not wav_file.exists():
-            voice = _resolve_voice(storyboard, narration)
+            voice = _resolve_voice(narration, voice_assignments)
             tts_backend.generate(text, wav_file, voice=voice)
 
 
@@ -473,11 +498,13 @@ def _write_timeline(
 def main() -> None:
     if len(sys.argv) < 2:
         print(
-            "Usage: screencast-narrator [--debug-overlay] [--font-size N] <target-dir>",
+            "Usage: screencast-narrator [--offline] [--debug-overlay] [--font-size N] <target-dir>",
             file=sys.stderr,
         )
         sys.exit(1)
     args = sys.argv[1:]
+    offline = "--offline" in args
+    args = [a for a in args if a != "--offline"]
     debug_overlay = "--debug-overlay" in args
     args = [a for a in args if a != "--debug-overlay"]
     font_size: int | None = None
@@ -485,7 +512,7 @@ def main() -> None:
         idx = args.index("--font-size")
         font_size = int(args[idx + 1])
         args = args[:idx] + args[idx + 2:]
-    process(Path(args[0]), debug_overlay=debug_overlay, font_size=font_size)
+    process(Path(args[0]), offline=offline, debug_overlay=debug_overlay, font_size=font_size)
 
 
 if __name__ == "__main__":

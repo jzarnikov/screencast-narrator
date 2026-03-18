@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from screencast_narrator.merge import _generate_tts_audio, _resolve_voice, _segment_name
+import pytest
+
+from screencast_narrator.merge import (
+    _build_voice_assignments,
+    _generate_tts_audio,
+    _resolve_voice,
+    _segment_name,
+)
 from screencast_narrator.tts import TTSBackend
 from screencast_narrator_client.generated.storyboard_types import (
     Model as StoryboardModel,
@@ -15,17 +22,24 @@ from screencast_narrator_client.generated.storyboard_types import (
 
 class _RecordingTTSBackend(TTSBackend):
     def __init__(self) -> None:
+        super().__init__(language="en")
         self.calls: list[tuple[str, Path, str | None]] = []
+
+    def resolve_voice(self, voice: str) -> str:
+        return voice
 
     def generate(self, text: str, output_path: Path, voice: str | None = None) -> None:
         self.calls.append((text, output_path, voice))
         output_path.write_bytes(b"RIFF" + b"\x00" * 40)
 
+    def _generate_raw(self, text: str, output_path: Path, voice: str) -> None:
+        pass
+
 
 def _make_storyboard(
     narrations: list[StoryboardNarration],
     language: str = "en",
-    voices: dict[str, dict[str, str]] | None = None,
+    voices: dict[str, str] | None = None,
 ) -> StoryboardModel:
     return StoryboardModel(
         language=language,
@@ -34,51 +48,57 @@ def _make_storyboard(
     )
 
 
-def test_resolve_voice_with_explicit_voice_id() -> None:
+def test_build_voice_assignments_single_female() -> None:
+    tts = _RecordingTTSBackend()
     storyboard = _make_storyboard(
         [StoryboardNarration(narration_id=0, text="Hello", voice="nathaly")],
-        voices={"nathaly": {"en": "bf_alice", "de": "de_natasha"}},
+        voices={"nathaly": "female"},
     )
-    assert _resolve_voice(storyboard, storyboard.narrations[0]) == "bf_alice"
+    assignments = _build_voice_assignments(storyboard, tts)
+    assert assignments == {"nathaly": "female-1"}
 
 
-def test_resolve_voice_defaults_to_first_voice() -> None:
+def test_build_voice_assignments_multiple_same_gender() -> None:
+    tts = _RecordingTTSBackend()
     storyboard = _make_storyboard(
-        [StoryboardNarration(narration_id=0, text="Hello")],
-        voices={"nathaly": {"en": "bf_alice"}},
+        [
+            StoryboardNarration(narration_id=0, text="Hello", voice="nathaly"),
+            StoryboardNarration(narration_id=1, text="World", voice="sarah"),
+        ],
+        voices={"nathaly": "female", "sarah": "female"},
     )
-    assert _resolve_voice(storyboard, storyboard.narrations[0]) == "bf_alice"
+    assignments = _build_voice_assignments(storyboard, tts)
+    assert assignments == {"nathaly": "female-1", "sarah": "female-2"}
 
 
-def test_resolve_voice_returns_none_without_voices() -> None:
-    storyboard = _make_storyboard(
-        [StoryboardNarration(narration_id=0, text="Hello")],
-    )
-    assert _resolve_voice(storyboard, storyboard.narrations[0]) is None
-
-
-def test_resolve_voice_returns_none_for_missing_language() -> None:
-    storyboard = _make_storyboard(
-        [StoryboardNarration(narration_id=0, text="Hello")],
-        language="fr",
-        voices={"nathaly": {"en": "bf_alice", "de": "de_natasha"}},
-    )
-    assert _resolve_voice(storyboard, storyboard.narrations[0]) is None
-
-
-def test_resolve_voice_different_narrations_different_voices() -> None:
+def test_build_voice_assignments_mixed_genders() -> None:
+    tts = _RecordingTTSBackend()
     storyboard = _make_storyboard(
         [
             StoryboardNarration(narration_id=0, text="Hello", voice="nathaly"),
             StoryboardNarration(narration_id=1, text="World", voice="james"),
         ],
-        voices={
-            "nathaly": {"en": "bf_alice"},
-            "james": {"en": "am_michael"},
-        },
+        voices={"nathaly": "female", "james": "male"},
     )
-    assert _resolve_voice(storyboard, storyboard.narrations[0]) == "bf_alice"
-    assert _resolve_voice(storyboard, storyboard.narrations[1]) == "am_michael"
+    assignments = _build_voice_assignments(storyboard, tts)
+    assert assignments == {"nathaly": "female-1", "james": "male-1"}
+
+
+def test_resolve_voice_with_assignments() -> None:
+    assignments = {"nathaly": "female-1", "james": "male-1"}
+    narration = StoryboardNarration(narration_id=0, text="Hello", voice="nathaly")
+    assert _resolve_voice(narration, assignments) == "female-1"
+
+
+def test_resolve_voice_defaults_to_first_alias() -> None:
+    assignments = {"nathaly": "female-1"}
+    narration = StoryboardNarration(narration_id=0, text="Hello")
+    assert _resolve_voice(narration, assignments) == "female-1"
+
+
+def test_resolve_voice_returns_none_without_assignments() -> None:
+    narration = StoryboardNarration(narration_id=0, text="Hello")
+    assert _resolve_voice(narration, {}) is None
 
 
 def test_generate_tts_passes_resolved_voice(tmp_path: Path) -> None:
@@ -88,16 +108,13 @@ def test_generate_tts_passes_resolved_voice(tmp_path: Path) -> None:
             StoryboardNarration(narration_id=0, text="Hello", voice="nathaly"),
             StoryboardNarration(narration_id=1, text="World", voice="james"),
         ],
-        voices={
-            "nathaly": {"en": "bf_alice"},
-            "james": {"en": "am_michael"},
-        },
+        voices={"nathaly": "female", "james": "male"},
     )
     _generate_tts_audio(storyboard, tmp_path, tts)
 
     assert len(tts.calls) == 2
-    assert tts.calls[0][2] == "bf_alice"
-    assert tts.calls[1][2] == "am_michael"
+    assert tts.calls[0][2] == "female-1"
+    assert tts.calls[1][2] == "male-1"
 
 
 def test_generate_tts_without_voices_passes_none(tmp_path: Path) -> None:
@@ -122,6 +139,45 @@ def test_generate_tts_skips_empty_text(tmp_path: Path) -> None:
 
     assert len(tts.calls) == 1
     assert tts.calls[0][0] == "Has text"
+
+
+class _RejectingTTSBackend(TTSBackend):
+    def __init__(self, allowed_voices: set[str]) -> None:
+        super().__init__(language="en")
+        self._allowed = allowed_voices
+
+    def resolve_voice(self, voice: str) -> str:
+        if voice not in self._allowed:
+            raise ValueError(f"Voice '{voice}' not supported")
+        return voice
+
+    def generate(self, text: str, output_path: Path, voice: str | None = None) -> None:
+        output_path.write_bytes(b"RIFF" + b"\x00" * 40)
+
+    def _generate_raw(self, text: str, output_path: Path, voice: str) -> None:
+        pass
+
+
+def test_validate_voices_fails_fast_on_invalid_voice(tmp_path: Path) -> None:
+    tts = _RejectingTTSBackend(allowed_voices={"female-1"})
+    storyboard = _make_storyboard(
+        [
+            StoryboardNarration(narration_id=0, text="Hello", voice="nathaly"),
+            StoryboardNarration(narration_id=1, text="World", voice="james"),
+        ],
+        voices={"nathaly": "female", "james": "male"},
+    )
+    with pytest.raises(ValueError, match="male-1"):
+        _generate_tts_audio(storyboard, tmp_path, tts)
+    assert not list(tmp_path.glob("segment_*")), "No audio should be generated before validation fails"
+
+
+def test_invalid_gender_rejected_by_schema() -> None:
+    with pytest.raises(Exception, match="female.*male"):
+        _make_storyboard(
+            [StoryboardNarration(narration_id=0, text="Hello", voice="nathaly")],
+            voices={"nathaly": "robot"},
+        )
 
 
 def test_generate_tts_does_not_regenerate_existing(tmp_path: Path) -> None:

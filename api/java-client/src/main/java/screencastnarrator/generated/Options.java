@@ -25,11 +25,11 @@ public class Options {
     @JsonPropertyDescription("User-customizable highlight appearance. All fields are optional \u2014 unset fields inherit from the shared config defaults.")
     private HighlightStyle highlightStyle;
     /**
-     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * Named voice identities mapping alias to gender (e.g. {"nathaly": "female", "james": "male"})
      * 
      */
     @JsonProperty("voices")
-    @JsonPropertyDescription("Named voice identities mapping alias to language-specific TTS voices (e.g. {\"nathaly\": {\"en\": \"bf_alice\", \"de\": \"de_natasha\"}})")
+    @JsonPropertyDescription("Named voice identities mapping alias to gender (e.g. {\"nathaly\": \"female\", \"james\": \"male\"})")
     private Voices voices;
     /**
      * Show debug overlay in the final video
@@ -58,7 +58,7 @@ public class Options {
      * @param debugOverlay
      *     Show debug overlay in the final video.
      * @param voices
-     *     Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}}).
+     *     Named voice identities mapping alias to gender (e.g. {"nathaly": "female", "james": "male"}).
      * @param fontSize
      *     Font size for debug overlay text.
      */
@@ -89,7 +89,7 @@ public class Options {
     }
 
     /**
-     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * Named voice identities mapping alias to gender (e.g. {"nathaly": "female", "james": "male"})
      * 
      */
     @JsonProperty("voices")
@@ -98,7 +98,7 @@ public class Options {
     }
 
     /**
-     * Named voice identities mapping alias to language-specific TTS voices (e.g. {"nathaly": {"en": "bf_alice", "de": "de_natasha"}})
+     * Named voice identities mapping alias to gender (e.g. {"nathaly": "female", "james": "male"})
      * 
      */
     @JsonProperty("voices")

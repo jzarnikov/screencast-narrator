@@ -39,7 +39,7 @@ public class Storyboard {
     private final int videoHeight;
     private final boolean debugOverlay;
     private final int fontSize;
-    private final Map<String, Map<String, String>> voices;
+    private final Map<String, String> voices;
     private final List<Map<String, Object>> narrations = new ArrayList<>();
     private final List<Map<String, Object>> pendingScreenActions = new ArrayList<>();
     private final List<Map<String, Object>> pendingHighlights = new ArrayList<>();
@@ -58,12 +58,12 @@ public class Storyboard {
     private long narrationStartTimeNanos;
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle,
-                       boolean debugOverlay, int fontSize, Map<String, Map<String, String>> voices) throws Exception {
+                       boolean debugOverlay, int fontSize, Map<String, String> voices) throws Exception {
         this(outputDir, page, language, highlightStyle, debugOverlay, fontSize, voices, DEFAULT_VIDEO_WIDTH, DEFAULT_VIDEO_HEIGHT);
     }
 
     public Storyboard(Path outputDir, Page page, String language, HighlightStyle highlightStyle,
-                       boolean debugOverlay, int fontSize, Map<String, Map<String, String>> voices,
+                       boolean debugOverlay, int fontSize, Map<String, String> voices,
                        int videoWidth, int videoHeight) throws Exception {
         this.config = SharedConfig.load();
         this.outputDir = outputDir;

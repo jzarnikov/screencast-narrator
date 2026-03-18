@@ -564,7 +564,7 @@ def test_end_narration_records_narration_without_actions(tmp_path: Path) -> None
 
 
 def test_voice_stored_on_narration(tmp_path: Path) -> None:
-    sb = Storyboard(tmp_path, voices={"douglas": {"en": "am_adam"}})
+    sb = Storyboard(tmp_path, voices={"douglas": "male"})
     sb.begin_narration("Hello", voice="douglas")
     sb.end_narration()
 
@@ -580,7 +580,7 @@ def test_voice_none_when_not_specified(tmp_path: Path) -> None:
 
 
 def test_voice_json_serialization(tmp_path: Path) -> None:
-    sb = Storyboard(tmp_path, voices={"douglas": {"en": "am_adam"}, "natalie": {"en": "bf_alice"}})
+    sb = Storyboard(tmp_path, voices={"douglas": "male", "natalie": "female"})
     sb.begin_narration("Hello", voice="douglas")
     sb.end_narration()
     sb.begin_narration("World", voice="natalie")
@@ -589,7 +589,7 @@ def test_voice_json_serialization(tmp_path: Path) -> None:
     data = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
     assert data["narrations"][0]["voice"] == "douglas"
     assert data["narrations"][1]["voice"] == "natalie"
-    assert data["options"]["voices"] == {"douglas": {"en": "am_adam"}, "natalie": {"en": "bf_alice"}}
+    assert data["options"]["voices"] == {"douglas": "male", "natalie": "female"}
 
 
 def test_voice_omitted_from_json_when_not_set(tmp_path: Path) -> None:
