@@ -28,6 +28,7 @@ jobs:
           pip install playwright
           playwright install chromium --with-deps
           cd api/typescript-client && npm install && cd ../..
+          npm install --no-save playwright
       - name: Run e2e tests
         run: pytest -m e2e -v
 
