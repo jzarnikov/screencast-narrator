@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -192,14 +193,17 @@ def _process_per_narration_videos(
     ]
 
     primary_srt = output_file.with_suffix(".srt")
-    _write_srt(narrations, audio_timestamps, primary_srt)
+    _write_srt(narrations, audio_timestamps, primary_srt, storyboard.narrations, language)
     srt_files: list[tuple[Path, str]] = [(primary_srt, language)]
 
-    translation_langs: set[str] = set()
+    extra_langs: set[str] = set()
+    if language != "en":
+        extra_langs.add("en")
     for sn in storyboard.narrations:
         if sn.translations:
-            translation_langs.update(sn.translations.keys())
-    for lang in sorted(translation_langs):
+            extra_langs.update(sn.translations.keys())
+    extra_langs.discard(language)
+    for lang in sorted(extra_langs):
         lang_srt = output_file.with_name(f"{output_file.stem}_{lang}.srt")
         _write_srt(narrations, audio_timestamps, lang_srt, storyboard.narrations, lang)
         srt_files.append((lang_srt, lang))
@@ -258,6 +262,17 @@ def _resolve_voice(
     return voice_assignments.get(alias)
 
 
+_PRONOUNCED_RE = re.compile(r'<pronounced\s+as="([^"]+)">([^<]+)</pronounced>')
+
+
+def _text_for_tts(text: str) -> str:
+    return _PRONOUNCED_RE.sub(r'\1', text)
+
+
+def _text_for_display(text: str) -> str:
+    return _PRONOUNCED_RE.sub(r'\2', text)
+
+
 def _resolve_text(narration: StoryboardNarration, language: str) -> str:
     if narration.translations and language in narration.translations:
         return narration.translations[language]
@@ -267,13 +282,13 @@ def _resolve_text(narration: StoryboardNarration, language: str) -> str:
 def _generate_tts_audio(storyboard: StoryboardModel, audio_dir: Path, tts_backend: TTSBackend) -> None:
     voice_assignments = _build_voice_assignments(storyboard, tts_backend)
     for i, narration in enumerate(storyboard.narrations):
-        text = _resolve_text(narration, storyboard.language)
-        if not text:
+        raw_text = _resolve_text(narration, storyboard.language)
+        if not raw_text:
             continue
         wav_file = audio_dir / _segment_name(i)
         if not wav_file.exists():
             voice = _resolve_voice(narration, voice_assignments)
-            tts_backend.generate(text, wav_file, voice=voice)
+            tts_backend.generate(_text_for_tts(raw_text), wav_file, voice=voice)
 
 
 def _fmt_srt_time(ms: int) -> str:
@@ -289,21 +304,16 @@ def _write_srt(
     narrations: list[NarrationSegment],
     adjusted_timestamps: list[int],
     srt_file: Path,
-    storyboard_narrations: list[StoryboardNarration] | None = None,
-    language: str | None = None,
+    storyboard_narrations: list[StoryboardNarration],
+    language: str,
 ) -> None:
     lines: list[str] = []
     seq = 0
     for i, narration in enumerate(narrations):
-        if language is not None and storyboard_narrations is not None:
-            translations = storyboard_narrations[i].translations or {}
-            text = translations.get(language)
-            if not text:
-                continue
-        else:
-            text = narration.text
-        if not text:
+        raw_text = _resolve_text(storyboard_narrations[i], language)
+        if not raw_text:
             continue
+        text = _text_for_display(raw_text)
         seq += 1
         start = adjusted_timestamps[i]
         end = start + narration.audio_duration_ms

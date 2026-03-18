@@ -5,8 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from screencast_narrator.narration_segment import NarrationSegment
-from screencast_narrator.merge import _fmt_srt_time, _write_srt
+from screencast_narrator.merge import _fmt_srt_time, _text_for_display, _text_for_tts, _write_srt
 from screencast_narrator_client.generated.storyboard_types import Narration as StoryboardNarration
+
+
+def _sb_narrations(texts: list[str]) -> list[StoryboardNarration]:
+    return [StoryboardNarration(narration_id=i, text=t) for i, t in enumerate(texts)]
 
 
 def test_fmt_srt_time_zero():
@@ -30,10 +34,11 @@ def test_write_srt_creates_valid_file(tmp_path: Path):
         NarrationSegment(0, 2000, "Hello world", 1500),
         NarrationSegment(2000, 5000, "Second narration", 2800),
     ]
+    sb_narrations = _sb_narrations(["Hello world", "Second narration"])
     timestamps = [0, 2000]
     srt_file = tmp_path / "test.srt"
 
-    _write_srt(narrations, timestamps, srt_file)
+    _write_srt(narrations, timestamps, srt_file, sb_narrations, "en")
 
     content = srt_file.read_text()
     lines = content.strip().split("\n")
@@ -52,10 +57,11 @@ def test_write_srt_with_adjusted_timestamps(tmp_path: Path):
         NarrationSegment(0, 3000, "First", 2000),
         NarrationSegment(3000, 6000, "Second", 2500),
     ]
+    sb_narrations = _sb_narrations(["First", "Second"])
     timestamps = [500, 4000]
     srt_file = tmp_path / "shifted.srt"
 
-    _write_srt(narrations, timestamps, srt_file)
+    _write_srt(narrations, timestamps, srt_file, sb_narrations, "en")
 
     content = srt_file.read_text()
     assert "00:00:00,500 --> 00:00:02,500" in content
@@ -64,10 +70,11 @@ def test_write_srt_with_adjusted_timestamps(tmp_path: Path):
 
 def test_write_srt_single_narration(tmp_path: Path):
     narrations = [NarrationSegment(0, 5000, "Only one", 3000)]
+    sb_narrations = _sb_narrations(["Only one"])
     timestamps = [1000]
     srt_file = tmp_path / "single.srt"
 
-    _write_srt(narrations, timestamps, srt_file)
+    _write_srt(narrations, timestamps, srt_file, sb_narrations, "en")
 
     content = srt_file.read_text()
     lines = content.strip().split("\n")
@@ -96,7 +103,7 @@ def test_write_srt_with_translation_language(tmp_path: Path):
     assert "Hello world" not in content
 
 
-def test_write_srt_translation_skips_missing(tmp_path: Path):
+def test_write_srt_translation_falls_back_to_base_text(tmp_path: Path):
     narrations = [
         NarrationSegment(0, 2000, "Hello", 1500),
         NarrationSegment(2000, 5000, "World", 2800),
@@ -112,9 +119,107 @@ def test_write_srt_translation_skips_missing(tmp_path: Path):
 
     content = fr_srt.read_text()
     assert "Bonjour" in content
-    assert "World" not in content
-    lines = content.strip().split("\n")
-    assert lines[0] == "1"
+    assert "World" in content
+
+
+def test_write_srt_primary_uses_translated_text(tmp_path: Path):
+    narrations = [
+        NarrationSegment(0, 2000, "Hello", 1500),
+    ]
+    storyboard_narrations = [
+        StoryboardNarration(narration_id=0, text="Hello", translations={"de": "Hallo"}),
+    ]
+    timestamps = [0]
+
+    srt_file = tmp_path / "primary.srt"
+    _write_srt(narrations, timestamps, srt_file, storyboard_narrations, "de")
+
+    content = srt_file.read_text()
+    assert "Hallo" in content
+    assert "Hello" not in content
+
+
+def test_write_srt_english_fallback_when_no_translation(tmp_path: Path):
+    narrations = [
+        NarrationSegment(0, 2000, "Hello", 1500),
+        NarrationSegment(2000, 5000, "World", 2800),
+    ]
+    storyboard_narrations = [
+        StoryboardNarration(narration_id=0, text="Hello", translations={"de": "Hallo"}),
+        StoryboardNarration(narration_id=1, text="World"),
+    ]
+    timestamps = [0, 2000]
+
+    en_srt = tmp_path / "en.srt"
+    _write_srt(narrations, timestamps, en_srt, storyboard_narrations, "en")
+
+    content = en_srt.read_text()
+    assert "Hello" in content
+    assert "World" in content
+    assert "Hallo" not in content
+
+
+def test_write_srt_de_primary_with_en_secondary(tmp_path: Path):
+    narrations = [
+        NarrationSegment(0, 2000, "Hello", 1500),
+    ]
+    storyboard_narrations = [
+        StoryboardNarration(narration_id=0, text="Hello", translations={"de": "Hallo"}),
+    ]
+    timestamps = [0]
+
+    de_srt = tmp_path / "primary.srt"
+    _write_srt(narrations, timestamps, de_srt, storyboard_narrations, "de")
+    assert "Hallo" in de_srt.read_text()
+    assert "Hello" not in de_srt.read_text()
+
+    en_srt = tmp_path / "secondary_en.srt"
+    _write_srt(narrations, timestamps, en_srt, storyboard_narrations, "en")
+    assert "Hello" in en_srt.read_text()
+    assert "Hallo" not in en_srt.read_text()
+
+
+def test_text_for_tts_replaces_with_pronunciation():
+    text = 'Die <pronounced as="Trongsche">Tranche</pronounced> wurde erkannt.'
+    assert _text_for_tts(text) == "Die Trongsche wurde erkannt."
+
+
+def test_text_for_display_strips_pronunciation_tag():
+    text = 'Die <pronounced as="Trongsche">Tranche</pronounced> wurde erkannt.'
+    assert _text_for_display(text) == "Die Tranche wurde erkannt."
+
+
+def test_text_for_tts_multiple_tags():
+    text = '<pronounced as="Trongsche">Tranche</pronounced> und <pronounced as="Fong">Fonds</pronounced>'
+    assert _text_for_tts(text) == "Trongsche und Fong"
+
+
+def test_text_for_display_multiple_tags():
+    text = '<pronounced as="Trongsche">Tranche</pronounced> und <pronounced as="Fong">Fonds</pronounced>'
+    assert _text_for_display(text) == "Tranche und Fonds"
+
+
+def test_text_without_pronunciation_tags_unchanged():
+    text = "Normal text without any tags."
+    assert _text_for_tts(text) == text
+    assert _text_for_display(text) == text
+
+
+def test_write_srt_strips_pronunciation_for_display(tmp_path: Path):
+    narrations = [NarrationSegment(0, 2000, "test", 1500)]
+    sb_narrations = [
+        StoryboardNarration(
+            narration_id=0,
+            text='Die <pronounced as="Trongsche">Tranche</pronounced> wurde erkannt.',
+        ),
+    ]
+    srt_file = tmp_path / "test.srt"
+    _write_srt(narrations, [0], srt_file, sb_narrations, "en")
+
+    content = srt_file.read_text()
+    assert "Tranche" in content
+    assert "Trongsche" not in content
+    assert "<pronounced" not in content
 
 
 def test_storyboard_serializes_language_and_translations(tmp_path: Path):
