@@ -18,12 +18,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Install dependencies
         run: |
           pip install -e api/python-client
           pip install -e ".[dev,e2e]"
           pip install playwright
           playwright install chromium --with-deps
+          cd api/typescript-client && npm install && cd ../..
       - name: Run e2e tests
         run: pytest -m e2e -v
 
