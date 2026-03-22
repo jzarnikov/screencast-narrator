@@ -142,4 +142,18 @@ class StoryboardTest {
 
         assertNull(readStoryboard(dir).get("options"));
     }
+
+    @Test
+    void pauseWithoutPageDoesNotThrow(@TempDir Path dir) throws Exception {
+        Storyboard sb = new Storyboard(dir);
+        assertDoesNotThrow(() -> sb.pause(0));
+    }
+
+    @Test
+    void pauseOutsideNarrationDoesNotThrow(@TempDir Path dir) throws Exception {
+        Storyboard sb = new Storyboard(dir);
+        sb.beginNarration("Test");
+        assertDoesNotThrow(() -> sb.pause(0));
+        sb.endNarration();
+    }
 }
