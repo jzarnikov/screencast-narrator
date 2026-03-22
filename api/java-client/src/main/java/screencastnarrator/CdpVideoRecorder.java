@@ -35,6 +35,8 @@ public class CdpVideoRecorder {
     private final AtomicBoolean recording = new AtomicBoolean(false);
     private volatile int frameCount;
     private volatile int lastSessionId = -1;
+    private volatile long lastFrameTimeNanos = -1;
+    private byte[] lastFrameBytes;
 
     public CdpVideoRecorder(Page page, Path outputFile, int width, int height, SharedConfig config) {
         this.page = page;
@@ -66,9 +68,23 @@ public class CdpVideoRecorder {
                 int sessionId = event.getAsJsonObject().get("sessionId").getAsInt();
 
                 byte[] frameBytes = Base64.getDecoder().decode(data);
+                long now = System.nanoTime();
                 synchronized (ffmpegStdin) {
+                    if (lastFrameBytes != null && lastFrameTimeNanos > 0) {
+                        long gapMs = (now - lastFrameTimeNanos) / 1_000_000;
+                        int fps = config.recording().getFps();
+                        int fillFrames = (int) (gapMs * fps / 1000) - 1;
+                        for (int f = 0; f < fillFrames; f++) {
+                            ffmpegStdin.write(lastFrameBytes);
+                        }
+                        if (fillFrames > 0) {
+                            frameCount += fillFrames;
+                        }
+                    }
                     ffmpegStdin.write(frameBytes);
                     ffmpegStdin.flush();
+                    lastFrameBytes = frameBytes;
+                    lastFrameTimeNanos = now;
                 }
                 frameCount++;
                 lastSessionId = sessionId;
@@ -130,6 +146,15 @@ public class CdpVideoRecorder {
         page.waitForTimeout(rec.getStopSettleMs());
 
         synchronized (ffmpegStdin) {
+            if (lastFrameBytes != null && lastFrameTimeNanos > 0) {
+                long gapMs = (System.nanoTime() - lastFrameTimeNanos) / 1_000_000;
+                int fps = rec.getFps();
+                int fillFrames = (int) (gapMs * fps / 1000);
+                for (int f = 0; f < fillFrames; f++) {
+                    ffmpegStdin.write(lastFrameBytes);
+                }
+                frameCount += fillFrames;
+            }
             ffmpegStdin.close();
         }
 

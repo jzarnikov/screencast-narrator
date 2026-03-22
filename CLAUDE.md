@@ -47,6 +47,13 @@ The pipeline in `src/screencast_narrator/` has 7 stages, orchestrated by `merge.
 
 **ffmpeg.py** — Thin wrappers around `ffmpeg`/`ffprobe` subprocesses.
 
+## Architectural Decisions — DO NOT CHANGE
+
+- **Per-narration recording is the correct architecture.** Each narration bracket records its own video. There is NO continuous/single-video recording mode. ALL screen actions MUST happen inside `narrate()` / `beginNarration()`+`endNarration()` brackets. If content is "missing" from the final video, the fix is ALWAYS in the consumer code (move screen actions inside narration brackets), NEVER in screencast-narrator's recording architecture. Do not propose, design, or implement continuous recording.
+- **Edge TTS is the default TTS backend.** Kokoro is the offline fallback (`--offline` flag). Do not change the default.
+- **Logical voice names** (`female`, `male`) are used in storyboard voices. The backend auto-assigns `female-1`, `female-2`, etc. based on order. Do not reintroduce per-language voice mappings.
+- **`<pronounced as="X">Y</pronounced>` tag** separates TTS pronunciation from subtitle display text. Do not change the tag format.
+
 ## Key Conventions
 
 - Python >=3.11, tested on 3.11/3.12/3.13
