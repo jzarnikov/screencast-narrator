@@ -30,7 +30,7 @@ public class Highlight {
         highlight(page, locator, config, null);
     }
 
-    private static void waitWithAcks(Page page, int totalMs, CdpVideoRecorder recorder) {
+    static void waitWithAcks(Page page, int totalMs, CdpVideoRecorder recorder) {
         if (recorder == null || totalMs <= 0) {
             page.waitForTimeout(totalMs);
             return;

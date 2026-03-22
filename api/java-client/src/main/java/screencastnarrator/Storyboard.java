@@ -167,6 +167,14 @@ public class Storyboard {
         }
     }
 
+    public void pause(long ms) {
+        if (currentRecorder != null && ms > 0) {
+            Highlight.waitWithAcks(page, (int) ms, currentRecorder);
+        } else if (page != null) {
+            page.waitForTimeout(ms);
+        }
+    }
+
     private long elapsedMs() {
         return (System.nanoTime() - narrationStartTimeNanos) / 1_000_000;
     }
