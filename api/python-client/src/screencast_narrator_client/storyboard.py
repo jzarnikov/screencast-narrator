@@ -142,11 +142,13 @@ class Storyboard:
         self._pending_action_id = said
         return said
 
-    def highlight(self, locator) -> None:
+    def highlight(self, *locators) -> None:
         if self._page is None:
             raise RuntimeError("Cannot highlight: no page was provided to Storyboard")
         if not self._narration_open:
             raise RuntimeError("Cannot highlight outside of a narration bracket")
+        if not locators:
+            raise RuntimeError("At least one locator is required")
 
         hl_config = self._config.with_highlight_overrides(self._highlight_style)
 
@@ -154,8 +156,7 @@ class Storyboard:
         self._screen_action_id_counter += 1
 
         from screencast_narrator_client.highlight import highlight as _highlight
-
-        _highlight(self._page, locator, hl_config)
+        _highlight(self._page, list(locators), hl_config)
 
         self._pending_screen_actions.append(ScreenAction(
             type=ScreenActionType.highlight,

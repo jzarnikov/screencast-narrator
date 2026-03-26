@@ -26,10 +26,12 @@ def _merge_style_into_config(hl: HighlightConfig, style: HighlightStyle) -> High
         opacity=style.opacity if style.opacity is not None else hl.opacity,
         segments=style.segments if style.segments is not None else hl.segments,
         coverage=style.coverage if style.coverage is not None else hl.coverage,
+        underline_threshold_pct=hl.underline_threshold_pct,
         scroll_js=hl.scroll_js,
         scroll_wait_js=hl.scroll_wait_js,
         draw_js=hl.draw_js,
         remove_js=hl.remove_js,
+        combine_js=hl.combine_js,
     )
 
 
@@ -65,6 +67,10 @@ class SharedConfig:
     @property
     def resolved_remove_js(self) -> str:
         return self._resolve_js(self.highlight.remove_js)
+
+    @property
+    def resolved_combine_js(self) -> str:
+        return self._resolve_js(self.highlight.combine_js)
 
     def ffmpeg_args(self, output_file: str) -> list[str]:
         rec = self.recording

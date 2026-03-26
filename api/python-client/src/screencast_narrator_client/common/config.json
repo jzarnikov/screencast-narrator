@@ -22,9 +22,11 @@
     "opacity": 0.65,
     "segments": 200,
     "coverage": 0.93,
+    "underlineThresholdPct": 3,
     "scrollJs": "js/highlight-scroll.js",
     "scrollWaitJs": "js/highlight-scroll-wait.js",
     "drawJs": "js/highlight-draw.js",
-    "removeJs": "js/highlight-remove.js"
+    "removeJs": "js/highlight-remove.js",
+    "combineJs": "js/highlight-combine.js"
   }
 }

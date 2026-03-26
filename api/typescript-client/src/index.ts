@@ -59,6 +59,10 @@ export class SharedConfig {
     return this.resolveJs(this.highlight.removeJs);
   }
 
+  get resolvedCombineJs(): string {
+    return this.resolveJs(this.highlight.combineJs);
+  }
+
   ffmpegArgs(outputFile: string): string[] {
     const rec = this.recording;
     return [
@@ -289,15 +293,18 @@ export class Storyboard {
     return said;
   }
 
-  async highlight(locator: Locator): Promise<void> {
+  async highlight(...locators: Locator[]): Promise<void> {
     if (!this.page) {
       throw new Error("Cannot highlight: no page was provided to Storyboard");
     }
     if (!this.narrationOpen) {
       throw new Error("Cannot highlight outside of a narration bracket");
     }
+    if (locators.length === 0) {
+      throw new Error("At least one locator is required");
+    }
     const hid = this.highlightIdCounter++;
-    await this.highlightElement(locator);
+    await this.highlightElements(locators);
     this.pendingHighlights.push({ highlightId: hid });
   }
 
@@ -397,14 +404,21 @@ export class Storyboard {
     );
   }
 
-  private async highlightElement(locator: Locator): Promise<void> {
+  private async highlightElements(locators: Locator[]): Promise<void> {
     if (!this.page) return;
     const hlConfig = this.config.withHighlightOverrides(this._highlightStyle);
-    await locator.evaluate((el, code) => new Function("return " + code)()(el), hlConfig.resolvedScrollJs);
+    await locators[0].evaluate((el, code) => new Function("return " + code)()(el), hlConfig.resolvedScrollJs);
     await this.page.evaluate((code) => new Function("return " + code)()(), hlConfig.resolvedScrollWaitJs);
-    await locator.evaluate((el, code) => new Function("return " + code)()(el), hlConfig.resolvedDrawJs);
+    const handles = await Promise.all(locators.map((l) => l.elementHandle()));
+    await this.page.evaluate(
+      (args: unknown[]) => new Function("return " + (args.pop() as string))()(args),
+      [...handles, hlConfig.resolvedCombineJs],
+    );
+    const wrapper = this.page.locator("#_e2e_multi_highlight");
+    await wrapper.evaluate((el, code) => new Function("return " + code)()(el), hlConfig.resolvedDrawJs);
     await this.page.waitForTimeout(hlConfig.highlight.animationSpeedMs + hlConfig.highlight.drawWaitMs);
     await this.page.evaluate(hlConfig.resolvedRemoveJs);
+    await this.page.evaluate(() => document.getElementById("_e2e_multi_highlight")?.remove());
     await this.page.waitForTimeout(hlConfig.highlight.removeWaitMs);
   }
 }

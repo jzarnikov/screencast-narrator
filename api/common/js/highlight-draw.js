@@ -1,10 +1,37 @@
 (el) => {
     const rect = el.getBoundingClientRect();
     const pad = {{padding}};
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const rx = rect.width / 2 + pad;
-    const ry = rect.height / 2 + pad * 0.78;
+    const viewportArea = window.innerWidth * window.innerHeight;
+    const elArea = rect.width * rect.height;
+    const areaPct = (elArea / viewportArea) * 100;
+    const threshold = {{underlineThresholdPct}};
+    const isLarge = areaPct > threshold;
+
+    let targetRect = rect;
+    if (isLarge) {
+        const tag = el.tagName.toLowerCase();
+        let found = null;
+        if (tag === 'tr') {
+            found = el.querySelector('th, td');
+        } else if (tag === 'table' || tag === 'tbody') {
+            found = el.querySelector('thead tr, tr');
+        }
+        if (!found) {
+            found = el.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"], legend, caption, summary');
+        }
+        if (!found) {
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                acceptNode: (n) => n.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+            });
+            const firstText = walker.nextNode();
+            if (firstText && firstText.parentElement) {
+                found = firstText.parentElement;
+            }
+        }
+        if (found) {
+            targetRect = found.getBoundingClientRect();
+        }
+    }
 
     const canvas = document.createElement('canvas');
     canvas.id = '_e2e_highlight';
@@ -16,16 +43,39 @@
     const ctx = canvas.getContext('2d');
     const minW = {{lineWidthMin}}, maxW = {{lineWidthMax}}, opacity = {{opacity}};
     const segments = {{segments}}, coverage = {{coverage}};
-    const startAngle = -Math.PI / 2;
 
     const points = [];
-    for (let i = 0; i <= segments; i++) {
-        const t = i / segments;
-        const angle = startAngle - t * coverage * Math.PI * 2;
-        const x = cx + rx * Math.cos(angle);
-        const y = cy + ry * Math.sin(angle);
-        const widthT = t < 0.2 ? t / 0.2 : 1.0;
-        points.push({ x, y, widthT });
+    if (isLarge) {
+        const y = targetRect.bottom + pad * 0.5;
+        const x0 = targetRect.left - pad * 0.3;
+        const x1 = targetRect.right + pad * 0.3;
+        const tickHeight = 10;
+        const tickSegs = Math.floor(segments * 0.08);
+        for (let i = 0; i <= tickSegs; i++) {
+            const t = i / tickSegs;
+            points.push({ x: x0, y: y - tickHeight + tickHeight * t, widthT: t < 0.5 ? t * 2 : 1.0 });
+        }
+        const remaining = segments - tickSegs;
+        for (let i = 0; i <= remaining; i++) {
+            const t = i / remaining;
+            const x = x0 + (x1 - x0) * t * coverage;
+            const wobble = Math.sin(t * Math.PI * 6) * 0.6;
+            points.push({ x, y: y + wobble, widthT: 1.0 });
+        }
+    } else {
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const rx = rect.width / 2 + pad;
+        const ry = rect.height / 2 + pad * 0.78;
+        const startAngle = -Math.PI / 2;
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const angle = startAngle - t * coverage * Math.PI * 2;
+            const x = cx + rx * Math.cos(angle);
+            const y = cy + ry * Math.sin(angle);
+            const widthT = t < 0.2 ? t / 0.2 : 1.0;
+            points.push({ x, y, widthT });
+        }
     }
 
     const speed = {{animationSpeedMs}};

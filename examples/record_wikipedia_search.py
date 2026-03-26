@@ -74,6 +74,7 @@ def record(output_dir: Path) -> None:
         if not headings:
             headings = [("No section headings found on the page", None)]
 
+        # --- Step 4: Read section headings, then highlight full section ---
         for i, (heading_text, heading_el) in enumerate(headings[:3]):
             def read_heading(sb: Storyboard, el=heading_el, desc=heading_text) -> None:
                 def do_highlight(_sb: Storyboard) -> None:
@@ -86,6 +87,21 @@ def record(output_dir: Path) -> None:
                 read_heading,
                 text=f"Section {i + 1} of the article is titled: {heading_text}.",
             )
+
+            # Highlight heading + first paragraph together (large → underline)
+            if heading_el is not None:
+                first_para = heading_el.locator("xpath=../following-sibling::p[1]").first
+
+                def highlight_section(sb: Storyboard, h=heading_el, p=first_para, desc=heading_text) -> None:
+                    def do_highlight(_sb: Storyboard) -> None:
+                        sb.highlight(h, p)
+
+                    sb.screen_action(do_highlight, description=f"Highlight section: {desc}")
+
+                storyboard.narrate(
+                    highlight_section,
+                    text=f"Let's look at the content of the {heading_text} section.",
+                )
 
         storyboard.done()
         context.close()

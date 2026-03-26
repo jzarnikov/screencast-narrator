@@ -25,10 +25,12 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "opacity",
     "segments",
     "coverage",
+    "underlineThresholdPct",
     "scrollJs",
     "scrollWaitJs",
     "drawJs",
-    "removeJs"
+    "removeJs",
+    "combineJs"
 })
 @Generated("jsonschema2pojo")
 public class HighlightConfig {
@@ -111,6 +113,14 @@ public class HighlightConfig {
     @JsonProperty("coverage")
     private Double coverage;
     /**
+     * Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse)
+     * (Required)
+     * 
+     */
+    @JsonProperty("underlineThresholdPct")
+    @JsonPropertyDescription("Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse)")
+    private Double underlineThresholdPct;
+    /**
      * JS file path or inline code for scrolling element into view
      * (Required)
      * 
@@ -142,6 +152,14 @@ public class HighlightConfig {
     @JsonProperty("removeJs")
     @JsonPropertyDescription("JS file path or inline code for removing the highlight")
     private String removeJs;
+    /**
+     * JS file path or inline code for combining multiple element rects into a wrapper div
+     * (Required)
+     * 
+     */
+    @JsonProperty("combineJs")
+    @JsonPropertyDescription("JS file path or inline code for combining multiple element rects into a wrapper div")
+    private String combineJs;
 
     /**
      * No args constructor for use in serialization
@@ -160,8 +178,12 @@ public class HighlightConfig {
      *     JS file path or inline code for drawing the highlight.
      * @param scrollWaitJs
      *     JS file path or inline code for waiting after scroll.
+     * @param underlineThresholdPct
+     *     Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse).
+     * @param combineJs
+     *     JS file path or inline code for combining multiple element rects into a wrapper div.
      */
-    public HighlightConfig(Integer scrollWaitMs, Integer drawWaitMs, Integer removeWaitMs, String color, Integer padding, Integer animationSpeedMs, Integer lineWidthMin, Integer lineWidthMax, Double opacity, Integer segments, Double coverage, String scrollJs, String scrollWaitJs, String drawJs, String removeJs) {
+    public HighlightConfig(Integer scrollWaitMs, Integer drawWaitMs, Integer removeWaitMs, String color, Integer padding, Integer animationSpeedMs, Integer lineWidthMin, Integer lineWidthMax, Double opacity, Integer segments, Double coverage, Double underlineThresholdPct, String scrollJs, String scrollWaitJs, String drawJs, String removeJs, String combineJs) {
         super();
         this.scrollWaitMs = scrollWaitMs;
         this.drawWaitMs = drawWaitMs;
@@ -174,10 +196,12 @@ public class HighlightConfig {
         this.opacity = opacity;
         this.segments = segments;
         this.coverage = coverage;
+        this.underlineThresholdPct = underlineThresholdPct;
         this.scrollJs = scrollJs;
         this.scrollWaitJs = scrollWaitJs;
         this.drawJs = drawJs;
         this.removeJs = removeJs;
+        this.combineJs = combineJs;
     }
 
     /**
@@ -401,6 +425,26 @@ public class HighlightConfig {
     }
 
     /**
+     * Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse)
+     * (Required)
+     * 
+     */
+    @JsonProperty("underlineThresholdPct")
+    public Double getUnderlineThresholdPct() {
+        return underlineThresholdPct;
+    }
+
+    /**
+     * Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse)
+     * (Required)
+     * 
+     */
+    @JsonProperty("underlineThresholdPct")
+    public void setUnderlineThresholdPct(Double underlineThresholdPct) {
+        this.underlineThresholdPct = underlineThresholdPct;
+    }
+
+    /**
      * JS file path or inline code for scrolling element into view
      * (Required)
      * 
@@ -480,6 +524,26 @@ public class HighlightConfig {
         this.removeJs = removeJs;
     }
 
+    /**
+     * JS file path or inline code for combining multiple element rects into a wrapper div
+     * (Required)
+     * 
+     */
+    @JsonProperty("combineJs")
+    public String getCombineJs() {
+        return combineJs;
+    }
+
+    /**
+     * JS file path or inline code for combining multiple element rects into a wrapper div
+     * (Required)
+     * 
+     */
+    @JsonProperty("combineJs")
+    public void setCombineJs(String combineJs) {
+        this.combineJs = combineJs;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -528,6 +592,10 @@ public class HighlightConfig {
         sb.append('=');
         sb.append(((this.coverage == null)?"<null>":this.coverage));
         sb.append(',');
+        sb.append("underlineThresholdPct");
+        sb.append('=');
+        sb.append(((this.underlineThresholdPct == null)?"<null>":this.underlineThresholdPct));
+        sb.append(',');
         sb.append("scrollJs");
         sb.append('=');
         sb.append(((this.scrollJs == null)?"<null>":this.scrollJs));
@@ -543,6 +611,10 @@ public class HighlightConfig {
         sb.append("removeJs");
         sb.append('=');
         sb.append(((this.removeJs == null)?"<null>":this.removeJs));
+        sb.append(',');
+        sb.append("combineJs");
+        sb.append('=');
+        sb.append(((this.combineJs == null)?"<null>":this.combineJs));
         sb.append(',');
         if (sb.charAt((sb.length()- 1)) == ',') {
             sb.setCharAt((sb.length()- 1), ']');
@@ -567,9 +639,11 @@ public class HighlightConfig {
         result = ((result* 31)+((this.scrollWaitMs == null)? 0 :this.scrollWaitMs.hashCode()));
         result = ((result* 31)+((this.drawJs == null)? 0 :this.drawJs.hashCode()));
         result = ((result* 31)+((this.scrollWaitJs == null)? 0 :this.scrollWaitJs.hashCode()));
+        result = ((result* 31)+((this.underlineThresholdPct == null)? 0 :this.underlineThresholdPct.hashCode()));
         result = ((result* 31)+((this.lineWidthMin == null)? 0 :this.lineWidthMin.hashCode()));
         result = ((result* 31)+((this.removeWaitMs == null)? 0 :this.removeWaitMs.hashCode()));
         result = ((result* 31)+((this.opacity == null)? 0 :this.opacity.hashCode()));
+        result = ((result* 31)+((this.combineJs == null)? 0 :this.combineJs.hashCode()));
         return result;
     }
 
@@ -582,7 +656,7 @@ public class HighlightConfig {
             return false;
         }
         HighlightConfig rhs = ((HighlightConfig) other);
-        return ((((((((((((((((this.drawWaitMs == rhs.drawWaitMs)||((this.drawWaitMs!= null)&&this.drawWaitMs.equals(rhs.drawWaitMs)))&&((this.coverage == rhs.coverage)||((this.coverage!= null)&&this.coverage.equals(rhs.coverage))))&&((this.padding == rhs.padding)||((this.padding!= null)&&this.padding.equals(rhs.padding))))&&((this.removeJs == rhs.removeJs)||((this.removeJs!= null)&&this.removeJs.equals(rhs.removeJs))))&&((this.color == rhs.color)||((this.color!= null)&&this.color.equals(rhs.color))))&&((this.animationSpeedMs == rhs.animationSpeedMs)||((this.animationSpeedMs!= null)&&this.animationSpeedMs.equals(rhs.animationSpeedMs))))&&((this.lineWidthMax == rhs.lineWidthMax)||((this.lineWidthMax!= null)&&this.lineWidthMax.equals(rhs.lineWidthMax))))&&((this.segments == rhs.segments)||((this.segments!= null)&&this.segments.equals(rhs.segments))))&&((this.scrollJs == rhs.scrollJs)||((this.scrollJs!= null)&&this.scrollJs.equals(rhs.scrollJs))))&&((this.scrollWaitMs == rhs.scrollWaitMs)||((this.scrollWaitMs!= null)&&this.scrollWaitMs.equals(rhs.scrollWaitMs))))&&((this.drawJs == rhs.drawJs)||((this.drawJs!= null)&&this.drawJs.equals(rhs.drawJs))))&&((this.scrollWaitJs == rhs.scrollWaitJs)||((this.scrollWaitJs!= null)&&this.scrollWaitJs.equals(rhs.scrollWaitJs))))&&((this.lineWidthMin == rhs.lineWidthMin)||((this.lineWidthMin!= null)&&this.lineWidthMin.equals(rhs.lineWidthMin))))&&((this.removeWaitMs == rhs.removeWaitMs)||((this.removeWaitMs!= null)&&this.removeWaitMs.equals(rhs.removeWaitMs))))&&((this.opacity == rhs.opacity)||((this.opacity!= null)&&this.opacity.equals(rhs.opacity))));
+        return ((((((((((((((((((this.drawWaitMs == rhs.drawWaitMs)||((this.drawWaitMs!= null)&&this.drawWaitMs.equals(rhs.drawWaitMs)))&&((this.coverage == rhs.coverage)||((this.coverage!= null)&&this.coverage.equals(rhs.coverage))))&&((this.padding == rhs.padding)||((this.padding!= null)&&this.padding.equals(rhs.padding))))&&((this.removeJs == rhs.removeJs)||((this.removeJs!= null)&&this.removeJs.equals(rhs.removeJs))))&&((this.color == rhs.color)||((this.color!= null)&&this.color.equals(rhs.color))))&&((this.animationSpeedMs == rhs.animationSpeedMs)||((this.animationSpeedMs!= null)&&this.animationSpeedMs.equals(rhs.animationSpeedMs))))&&((this.lineWidthMax == rhs.lineWidthMax)||((this.lineWidthMax!= null)&&this.lineWidthMax.equals(rhs.lineWidthMax))))&&((this.segments == rhs.segments)||((this.segments!= null)&&this.segments.equals(rhs.segments))))&&((this.scrollJs == rhs.scrollJs)||((this.scrollJs!= null)&&this.scrollJs.equals(rhs.scrollJs))))&&((this.scrollWaitMs == rhs.scrollWaitMs)||((this.scrollWaitMs!= null)&&this.scrollWaitMs.equals(rhs.scrollWaitMs))))&&((this.drawJs == rhs.drawJs)||((this.drawJs!= null)&&this.drawJs.equals(rhs.drawJs))))&&((this.scrollWaitJs == rhs.scrollWaitJs)||((this.scrollWaitJs!= null)&&this.scrollWaitJs.equals(rhs.scrollWaitJs))))&&((this.underlineThresholdPct == rhs.underlineThresholdPct)||((this.underlineThresholdPct!= null)&&this.underlineThresholdPct.equals(rhs.underlineThresholdPct))))&&((this.lineWidthMin == rhs.lineWidthMin)||((this.lineWidthMin!= null)&&this.lineWidthMin.equals(rhs.lineWidthMin))))&&((this.removeWaitMs == rhs.removeWaitMs)||((this.removeWaitMs!= null)&&this.removeWaitMs.equals(rhs.removeWaitMs))))&&((this.opacity == rhs.opacity)||((this.opacity!= null)&&this.opacity.equals(rhs.opacity))))&&((this.combineJs == rhs.combineJs)||((this.combineJs!= null)&&this.combineJs.equals(rhs.combineJs))));
     }
 
 }

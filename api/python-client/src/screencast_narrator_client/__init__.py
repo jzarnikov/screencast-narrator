@@ -5,7 +5,7 @@ from screencast_narrator_client.generated import (
     ScreenActionTiming,
     ScreenActionType,
 )
-from screencast_narrator_client.highlight import draw_highlight, highlight, remove_highlight
+from screencast_narrator_client.highlight import highlight
 from screencast_narrator_client.shared_config import (
     HighlightConfig,
     RecordingConfig,
@@ -29,7 +29,5 @@ __all__ = [
     "ScreenActionTiming",
     "ScreenActionType",
     "Storyboard",
-    "draw_highlight",
     "highlight",
-    "remove_highlight",
 ]

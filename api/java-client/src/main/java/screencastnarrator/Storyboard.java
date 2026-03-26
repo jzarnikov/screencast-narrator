@@ -218,17 +218,20 @@ public class Storyboard {
         return said;
     }
 
-    public void highlight(Locator locator) throws Exception {
+    public void highlight(Locator... locators) throws Exception {
         if (page == null) {
             throw new IllegalStateException("Cannot highlight: no page was provided to Storyboard");
         }
         if (!narrationOpen) {
             throw new IllegalStateException("Cannot highlight outside of a narration bracket");
         }
+        if (locators.length == 0) {
+            throw new IllegalArgumentException("At least one locator is required");
+        }
         int hid = highlightIdCounter++;
         SharedConfig hlConfig = config.withHighlightOverrides(highlightStyle);
         long startOffset = elapsedMs();
-        Highlight.highlight(page, locator, hlConfig, currentRecorder);
+        Highlight.highlight(page, locators, hlConfig, currentRecorder);
         long endOffset = elapsedMs();
         Map<String, Object> hl = new LinkedHashMap<>();
         hl.put("highlightId", hid);

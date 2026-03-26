@@ -75,6 +75,10 @@ export interface HighlightConfig {
   segments: number;
   coverage: number;
   /**
+   * Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse)
+   */
+  underlineThresholdPct: number;
+  /**
    * JS file path or inline code for scrolling element into view
    */
   scrollJs: string;
@@ -90,4 +94,8 @@ export interface HighlightConfig {
    * JS file path or inline code for removing the highlight
    */
   removeJs: string;
+  /**
+   * JS file path or inline code for combining multiple element rects into a wrapper div
+   */
+  combineJs: string;
 }

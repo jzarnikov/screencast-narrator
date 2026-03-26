@@ -70,7 +70,8 @@
       "required": [
         "scrollWaitMs", "drawWaitMs", "removeWaitMs", "color", "padding",
         "animationSpeedMs", "lineWidthMin", "lineWidthMax", "opacity",
-        "segments", "coverage", "scrollJs", "scrollWaitJs", "drawJs", "removeJs"
+        "segments", "coverage", "underlineThresholdPct",
+        "scrollJs", "scrollWaitJs", "drawJs", "removeJs", "combineJs"
       ],
       "properties": {
         "scrollWaitMs": { "type": "integer", "minimum": 0 },
@@ -84,10 +85,17 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "segments": { "type": "integer", "minimum": 1 },
         "coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "underlineThresholdPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Element area as % of viewport above which highlight switches to underline mode (0 = always ellipse)"
+        },
         "scrollJs": { "type": "string", "description": "JS file path or inline code for scrolling element into view" },
         "scrollWaitJs": { "type": "string", "description": "JS file path or inline code for waiting after scroll" },
         "drawJs": { "type": "string", "description": "JS file path or inline code for drawing the highlight" },
-        "removeJs": { "type": "string", "description": "JS file path or inline code for removing the highlight" }
+        "removeJs": { "type": "string", "description": "JS file path or inline code for removing the highlight" },
+        "combineJs": { "type": "string", "description": "JS file path or inline code for combining multiple element rects into a wrapper div" }
       },
       "additionalProperties": false
     }

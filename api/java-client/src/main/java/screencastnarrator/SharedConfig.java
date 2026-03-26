@@ -49,6 +49,7 @@ public class SharedConfig {
             hl.setScrollWaitJs(resolveJs(hl.getScrollWaitJs()));
             hl.setDrawJs(resolveJs(hl.getDrawJs()));
             hl.setRemoveJs(resolveJs(hl.getRemoveJs()));
+            hl.setCombineJs(resolveJs(hl.getCombineJs()));
             instance = new SharedConfig(schema.getRecording(), hl);
             return instance;
         } catch (IOException e) {
@@ -104,10 +105,12 @@ public class SharedConfig {
                 merged.getOpacity(),
                 merged.getSegments(),
                 merged.getCoverage(),
+                highlight.getUnderlineThresholdPct(),
                 highlight.getScrollJs(),
                 highlight.getScrollWaitJs(),
                 highlight.getDrawJs(),
-                highlight.getRemoveJs()
+                highlight.getRemoveJs(),
+                highlight.getCombineJs()
         );
         return new SharedConfig(recording, overridden);
     }
