@@ -10,5 +10,6 @@
     const w = document.createElement('div');
     w.id = '_e2e_multi_highlight';
     w.style.cssText = `position:fixed;left:${left}px;top:${top}px;width:${right-left}px;height:${bottom-top}px;pointer-events:none;z-index:-1;`;
+    w._e2eSourceElements = elements;
     document.body.appendChild(w);
 }

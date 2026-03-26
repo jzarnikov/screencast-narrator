@@ -9,24 +9,28 @@
 
     let targetRect = rect;
     if (isLarge) {
-        const tag = el.tagName.toLowerCase();
+        const sources = el._e2eSourceElements || [el];
         let found = null;
-        if (tag === 'tr') {
-            found = el.querySelector('th, td');
-        } else if (tag === 'table' || tag === 'tbody') {
-            found = el.querySelector('thead tr, tr');
-        }
-        if (!found) {
-            found = el.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"], legend, caption, summary');
-        }
-        if (!found) {
-            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-                acceptNode: (n) => n.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
-            });
-            const firstText = walker.nextNode();
-            if (firstText && firstText.parentElement) {
-                found = firstText.parentElement;
+        for (const src of sources) {
+            const tag = src.tagName.toLowerCase();
+            if (tag === 'tr') {
+                found = src.querySelector('th, td');
+            } else if (tag === 'table' || tag === 'tbody') {
+                found = src.querySelector('thead tr, tr');
             }
+            if (!found) {
+                found = src.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"], legend, caption, summary');
+            }
+            if (!found) {
+                const walker = document.createTreeWalker(src, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => n.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+                });
+                const firstText = walker.nextNode();
+                if (firstText && firstText.parentElement) {
+                    found = firstText.parentElement;
+                }
+            }
+            if (found) break;
         }
         if (found) {
             targetRect = found.getBoundingClientRect();
