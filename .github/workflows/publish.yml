@@ -23,6 +23,7 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: |
+          make sync-common
           pip install -e api/python-client
           pip install -e ".[dev,e2e]"
           pip install playwright
