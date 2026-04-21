@@ -7,10 +7,13 @@ import { ConfigSchema, RecordingConfig, HighlightConfig } from "./generated/conf
 import { CdpVideoRecorder } from "./cdp-video-recorder.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dir, "../../common/config.json");
+// `common/` ships inside the published package so installs via npm or
+// `file:` deps resolve correctly. The canonical copy under api/common/
+// (read by the Python/Java clients) is duplicated here at package time.
+const configPath = resolve(__dir, "..", "common", "config.json");
 
-export { HighlightStyle, ScreenActionTiming } from "./generated/storyboard-types.js";
-export { RecordingConfig, HighlightConfig } from "./generated/config-types.js";
+export type { HighlightStyle, ScreenActionTiming } from "./generated/storyboard-types.js";
+export type { RecordingConfig, HighlightConfig } from "./generated/config-types.js";
 
 function mergeHighlightStyles(base: HighlightStyle, override: HighlightStyle): HighlightStyle {
   return {
@@ -180,7 +183,6 @@ export class Storyboard {
   private _fontSize: number;
   private _voices: Record<string, string> | undefined;
   private currentRecorder: CdpVideoRecorder | null = null;
-  private narrationStartTimeMs = 0;
 
   constructor(outputDir: string, page?: Page, options?: {
     language?: string;
@@ -221,10 +223,6 @@ export class Storyboard {
     return this._fontSize;
   }
 
-  private elapsedMs(): number {
-    return performance.now() - this.narrationStartTimeMs;
-  }
-
   private async startRecording(narrationId: number): Promise<void> {
     const videoFile = join(this.outputDir, "videos", `narration-${String(narrationId).padStart(3, "0")}.mp4`);
     const recorder = new CdpVideoRecorder(this.page!, videoFile, this.videoWidth, this.videoHeight, this.config);
@@ -235,7 +233,6 @@ export class Storyboard {
       throw e;
     }
     this.currentRecorder = recorder;
-    this.narrationStartTimeMs = performance.now();
   }
 
   private async stopRecording(): Promise<void> {

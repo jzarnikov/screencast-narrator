@@ -1,0 +1,6 @@
+dist/
+node_modules/
+*.tgz
+# Copied from ../common/ at build time so npm pack ships it inside the
+# package — see prepack script. Source of truth lives in api/common/.
+common/
